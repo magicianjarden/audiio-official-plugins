@@ -1,0 +1,1 @@
+{"version":3,"file":"sposify-handlers.d.ts","sourceRoot":"","sources":["../../src/ipc/sposify-handlers.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,OAAO,EAAW,aAAa,EAAmC,MAAM,UAAU,CAAC;AA0BnF;;GAEG;AACH,wBAAgB,aAAa,CAAC,MAAM,EAAE,aAAa,GAAG,IAAI,CAEzD;AAgBD;;GAEG;AACH,wBAAgB,uBAAuB,CAAC,YAAY,EAAE,MAAM,GAAG,IAAI,CAiZlE;AAED;;GAEG;AACH,wBAAgB,yBAAyB,IAAI,IAAI,CAqChD"}
