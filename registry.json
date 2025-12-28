@@ -1,0 +1,68 @@
+{
+  "name": "Audiio Official Plugins",
+  "version": "1.0.0",
+  "description": "Official plugin repository for Audiio",
+  "homepage": "https://github.com/magicianjarden/audiio-official-plugins",
+  "plugins": [
+    {
+      "id": "deezer",
+      "name": "Deezer Metadata",
+      "version": "1.0.0",
+      "roles": ["metadata-provider"],
+      "description": "High-quality track, album, and artist metadata from Deezer",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-deezer",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-deezer"
+    },
+    {
+      "id": "youtube-music",
+      "name": "YouTube Music",
+      "version": "1.0.0",
+      "roles": ["stream-provider"],
+      "description": "Audio streaming and search powered by YouTube Music",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-youtube-music",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-youtube-music"
+    },
+    {
+      "id": "applemusic",
+      "name": "Apple Music Artwork",
+      "version": "1.0.0",
+      "roles": ["metadata-provider"],
+      "description": "High-quality album artwork from Apple Music",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-applemusic",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-applemusic"
+    },
+    {
+      "id": "lrclib",
+      "name": "LRCLIB Lyrics",
+      "version": "1.0.0",
+      "roles": ["lyrics-provider"],
+      "description": "Synced and plain lyrics from LRCLIB",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-lrclib",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-lrclib"
+    },
+    {
+      "id": "sposify",
+      "name": "Sposify",
+      "version": "1.0.0",
+      "roles": ["tool"],
+      "description": "Import Spotify listening history, playlists, and audio features",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-sposify",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-sposify"
+    },
+    {
+      "id": "algo",
+      "name": "Audiio Algorithm",
+      "version": "1.0.0",
+      "roles": ["audio-processor"],
+      "description": "ML-powered music recommendation and analysis algorithm",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-algo",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-algo"
+    }
+  ]
+}

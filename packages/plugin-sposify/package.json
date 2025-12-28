@@ -18,7 +18,8 @@
   "audiio": {
     "type": "plugin",
     "id": "sposify",
-    "roles": ["metadata-provider"]
+    "roles": ["tool"],
+    "toolType": "data-transfer"
   },
   "scripts": {
     "build": "tsc",
