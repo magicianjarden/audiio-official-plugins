@@ -1,0 +1,9 @@
+{
+  "id": "applemusic",
+  "name": "Apple Music Artwork",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "description": "Apple Music artwork provider with animated artwork support",
+  "roles": ["metadata-provider"],
+  "author": "Audiio"
+}

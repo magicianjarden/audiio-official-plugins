@@ -1,0 +1,9 @@
+{
+  "id": "karaoke",
+  "name": "Karaoke Mode",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "description": "Karaoke audio processor for Audiio - vocal isolation and karaoke mode",
+  "roles": ["audio-processor"],
+  "author": "Audiio"
+}

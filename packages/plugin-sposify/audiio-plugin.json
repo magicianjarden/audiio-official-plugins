@@ -1,0 +1,9 @@
+{
+  "id": "sposify",
+  "name": "Sposify (Spotify Import)",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "description": "Spotify data integration - import history, audio features, ISRC matching, and playlist discovery",
+  "roles": ["tool"],
+  "author": "Audiio"
+}
