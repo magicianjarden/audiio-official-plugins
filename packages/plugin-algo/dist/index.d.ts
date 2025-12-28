@@ -20,19 +20,28 @@ export { Trainer } from './training';
 export { EssentiaProvider, EmotionProvider, LyricsProvider, FingerprintProvider, EmbeddingProvider, } from './providers';
 export { createUIPluginAdapter, audiioAlgoUIPlugin } from './adapter';
 export type { AlgorithmPlugin, AlgorithmManifest, AlgorithmCapabilities, AlgorithmRequirements, AlgorithmSettingDefinition, MLCoreEndpoints, Track, TrackScore, ScoringContext, AudioFeatures, EmotionFeatures, LyricsFeatures, AggregatedFeatures, TrainingDataset, TrainingResult, } from '@audiio/ml-sdk';
-import { AudiioAlgorithm as _AudiioAlgorithm } from './algorithm';
 /**
- * Create and return the Audiio Algorithm instance
+ * Audiio Algorithm Plugin - BaseAddon compatible wrapper
+ *
+ * This class wraps the algorithm functionality in a format compatible
+ * with the Audiio plugin loader. The actual ML functionality is handled
+ * by the MLService in the main process, but this registers the plugin
+ * in the addon registry for UI visibility.
  */
-export declare function createAudiioAlgorithm(): _AudiioAlgorithm;
-/**
- * Plugin metadata for auto-discovery
- */
-export declare const plugin: {
-    name: string;
-    version: string;
-    description: string;
-    create: typeof createAudiioAlgorithm;
-};
-export default plugin;
+export declare class AudiioAlgoPlugin {
+    readonly id = "algo";
+    readonly name = "Audiio Algorithm";
+    get manifest(): {
+        id: string;
+        name: string;
+        version: any;
+        roles: "audio-processor"[];
+        description: any;
+        author: any;
+        settings: any;
+    };
+    initialize(): Promise<void>;
+    dispose(): Promise<void>;
+}
+export default AudiioAlgoPlugin;
 //# sourceMappingURL=index.d.ts.map

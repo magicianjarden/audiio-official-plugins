@@ -55,24 +55,41 @@ export type {
   TrainingResult,
 } from '@audiio/ml-sdk';
 
-// Import for use in createAudiioAlgorithm
-import { AudiioAlgorithm as _AudiioAlgorithm } from './algorithm';
+import { AUDIIO_ALGO_MANIFEST } from './manifest';
 
 /**
- * Create and return the Audiio Algorithm instance
+ * Audiio Algorithm Plugin - BaseAddon compatible wrapper
+ *
+ * This class wraps the algorithm functionality in a format compatible
+ * with the Audiio plugin loader. The actual ML functionality is handled
+ * by the MLService in the main process, but this registers the plugin
+ * in the addon registry for UI visibility.
  */
-export function createAudiioAlgorithm(): _AudiioAlgorithm {
-  return new _AudiioAlgorithm();
+export class AudiioAlgoPlugin {
+  readonly id = 'algo';
+  readonly name = 'Audiio Algorithm';
+
+  get manifest() {
+    return {
+      id: this.id,
+      name: this.name,
+      version: AUDIIO_ALGO_MANIFEST.version,
+      roles: ['audio-processor' as const],
+      description: AUDIIO_ALGO_MANIFEST.description,
+      author: AUDIIO_ALGO_MANIFEST.author,
+      settings: AUDIIO_ALGO_MANIFEST.settings,
+    };
+  }
+
+  async initialize(): Promise<void> {
+    console.log('[AudiioAlgo] Plugin initialized');
+    // Actual ML initialization happens in MLService
+  }
+
+  async dispose(): Promise<void> {
+    console.log('[AudiioAlgo] Plugin disposed');
+  }
 }
 
-/**
- * Plugin metadata for auto-discovery
- */
-export const plugin = {
-  name: 'audiio-algo',
-  version: '1.0.0',
-  description: 'Official Audiio ML/AI Algorithm Plugin',
-  create: createAudiioAlgorithm,
-};
-
-export default plugin;
+// Default export for plugin loader compatibility
+export default AudiioAlgoPlugin;

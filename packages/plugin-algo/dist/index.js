@@ -15,8 +15,7 @@
  * by implementing the AlgorithmPlugin interface from @audiio/ml-sdk.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.plugin = exports.audiioAlgoUIPlugin = exports.createUIPluginAdapter = exports.EmbeddingProvider = exports.FingerprintProvider = exports.LyricsProvider = exports.EmotionProvider = exports.EssentiaProvider = exports.Trainer = exports.NeuralScorer = exports.HybridScorer = exports.AUDIIO_ALGO_MANIFEST = exports.RadioGenerator = exports.AudiioAlgorithm = void 0;
-exports.createAudiioAlgorithm = createAudiioAlgorithm;
+exports.AudiioAlgoPlugin = exports.audiioAlgoUIPlugin = exports.createUIPluginAdapter = exports.EmbeddingProvider = exports.FingerprintProvider = exports.LyricsProvider = exports.EmotionProvider = exports.EssentiaProvider = exports.Trainer = exports.NeuralScorer = exports.HybridScorer = exports.AUDIIO_ALGO_MANIFEST = exports.RadioGenerator = exports.AudiioAlgorithm = void 0;
 // Main algorithm
 var algorithm_1 = require("./algorithm");
 Object.defineProperty(exports, "AudiioAlgorithm", { enumerable: true, get: function () { return algorithm_1.AudiioAlgorithm; } });
@@ -41,22 +40,40 @@ Object.defineProperty(exports, "EmbeddingProvider", { enumerable: true, get: fun
 var adapter_1 = require("./adapter");
 Object.defineProperty(exports, "createUIPluginAdapter", { enumerable: true, get: function () { return adapter_1.createUIPluginAdapter; } });
 Object.defineProperty(exports, "audiioAlgoUIPlugin", { enumerable: true, get: function () { return adapter_1.audiioAlgoUIPlugin; } });
-// Import for use in createAudiioAlgorithm
-const algorithm_2 = require("./algorithm");
+const manifest_2 = require("./manifest");
 /**
- * Create and return the Audiio Algorithm instance
+ * Audiio Algorithm Plugin - BaseAddon compatible wrapper
+ *
+ * This class wraps the algorithm functionality in a format compatible
+ * with the Audiio plugin loader. The actual ML functionality is handled
+ * by the MLService in the main process, but this registers the plugin
+ * in the addon registry for UI visibility.
  */
-function createAudiioAlgorithm() {
-    return new algorithm_2.AudiioAlgorithm();
+class AudiioAlgoPlugin {
+    constructor() {
+        this.id = 'algo';
+        this.name = 'Audiio Algorithm';
+    }
+    get manifest() {
+        return {
+            id: this.id,
+            name: this.name,
+            version: manifest_2.AUDIIO_ALGO_MANIFEST.version,
+            roles: ['audio-processor'],
+            description: manifest_2.AUDIIO_ALGO_MANIFEST.description,
+            author: manifest_2.AUDIIO_ALGO_MANIFEST.author,
+            settings: manifest_2.AUDIIO_ALGO_MANIFEST.settings,
+        };
+    }
+    async initialize() {
+        console.log('[AudiioAlgo] Plugin initialized');
+        // Actual ML initialization happens in MLService
+    }
+    async dispose() {
+        console.log('[AudiioAlgo] Plugin disposed');
+    }
 }
-/**
- * Plugin metadata for auto-discovery
- */
-exports.plugin = {
-    name: 'audiio-algo',
-    version: '1.0.0',
-    description: 'Official Audiio ML/AI Algorithm Plugin',
-    create: createAudiioAlgorithm,
-};
-exports.default = exports.plugin;
+exports.AudiioAlgoPlugin = AudiioAlgoPlugin;
+// Default export for plugin loader compatibility
+exports.default = AudiioAlgoPlugin;
 //# sourceMappingURL=index.js.map

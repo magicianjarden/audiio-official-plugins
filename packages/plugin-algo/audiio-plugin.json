@@ -1,0 +1,9 @@
+{
+  "id": "algo",
+  "name": "Audiio Algorithm",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "description": "Official Audiio ML recommendation algorithm with neural network scoring, audio analysis, and intelligent recommendations",
+  "roles": ["audio-processor"],
+  "author": "Audiio"
+}
