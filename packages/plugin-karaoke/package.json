@@ -1,0 +1,32 @@
+{
+  "name": "@audiio/plugin-karaoke",
+  "version": "1.0.0",
+  "description": "Karaoke audio processor for Audiio - vocal isolation and karaoke mode",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "audiio": {
+    "type": "plugin",
+    "id": "karaoke",
+    "roles": ["audio-processor"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@audiio/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["audiio", "plugin", "karaoke", "vocal", "audio"],
+  "author": "Audiio",
+  "license": "MIT"
+}

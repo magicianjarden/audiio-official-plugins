@@ -1,0 +1,32 @@
+{
+  "name": "@audiio/plugin-applemusic",
+  "version": "1.0.0",
+  "description": "Apple Music artwork provider for Audiio - high-quality album art",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "audiio": {
+    "type": "plugin",
+    "id": "applemusic",
+    "roles": ["metadata-provider"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@audiio/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["audiio", "plugin", "apple", "music", "artwork"],
+  "author": "Audiio",
+  "license": "MIT"
+}

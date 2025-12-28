@@ -1,0 +1,28 @@
+{
+  "name": "audiio-official-plugins",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Official plugins for Audiio music platform",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "clean": "turbo run clean",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/magicianjarden/audiio-official-plugins.git"
+  },
+  "license": "MIT"
+}
