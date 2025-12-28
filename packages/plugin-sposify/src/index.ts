@@ -52,12 +52,15 @@ export {
   type Playlist,
 } from './import';
 
-// IPC (Main Process Only)
+// IPC (Main Process Only) - Legacy exports for backwards compatibility
 export {
   registerSposifyHandlers,
   unregisterSposifyHandlers,
   setMainWindow,
 } from './ipc';
+
+// Tool class (new pattern for plugin system)
+export { SposifyTool, sposifyTool } from './sposify-tool';
 
 /**
  * Plugin metadata for registration
@@ -68,6 +71,8 @@ export const plugin = {
   version: '1.0.0',
   description: 'Import Spotify data, enrich with audio features, match by ISRC, discover playlists',
   author: 'Audiio',
+  toolType: 'data-transfer',
 };
 
-export default plugin;
+// Default export is the Tool class for the plugin loader to instantiate
+export { SposifyTool as default } from './sposify-tool';
