@@ -63,6 +63,16 @@
       "author": "Audiio",
       "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-algo",
       "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-algo"
+    },
+    {
+      "id": "karaoke",
+      "name": "Karaoke Mode",
+      "version": "1.0.0",
+      "roles": ["audio-processor"],
+      "description": "Karaoke audio processor - vocal isolation and karaoke mode",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-karaoke",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-karaoke"
     }
   ]
 }

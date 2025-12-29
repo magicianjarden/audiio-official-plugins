@@ -380,5 +380,12 @@ export class DeezerMetadataProvider extends BaseMetadataProvider {
   }
 }
 
+// Pipeline hooks (for Discover "See All" integration)
+export {
+  deezerChartsProvider,
+  registerDeezerPipelineHooks,
+  unregisterDeezerPipelineHooks,
+} from './pipeline';
+
 // Default export for addon loading
 export default DeezerMetadataProvider;

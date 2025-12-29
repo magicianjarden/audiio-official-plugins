@@ -62,6 +62,14 @@ export {
 // Tool class (new pattern for plugin system)
 export { SposifyTool, sposifyTool } from './sposify-tool';
 
+// Pipeline hooks (for Discover "See All" integration)
+export {
+  spotifyFeaturesTransformer,
+  similarFeaturesProvider,
+  registerSposifyPipelineHooks,
+  unregisterSposifyPipelineHooks,
+} from './pipeline';
+
 /**
  * Plugin metadata for registration
  */

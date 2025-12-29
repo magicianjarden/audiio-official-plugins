@@ -36,6 +36,15 @@ export {
 // UI Adapter (for integration with existing UI code)
 export { createUIPluginAdapter, audiioAlgoUIPlugin } from './adapter';
 
+// Pipeline hooks (for Discover "See All" integration)
+export {
+  emotionTransformer,
+  lyricsTransformer,
+  audioFeaturesTransformer,
+  sessionFlowTransformer,
+  registerAlgoPipelineHooks,
+} from './pipeline';
+
 // Re-export types for convenience
 export type {
   AlgorithmPlugin,
