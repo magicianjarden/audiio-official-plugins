@@ -12,6 +12,7 @@ import type {
 } from '@audiio/sdk';
 import type { UnifiedTrack, MetadataTrack } from '@audiio/core';
 import { DeezerMetadataProvider } from '../index';
+import { protectedFetchJson } from '../fetch-utils';
 
 const PLUGIN_ID = 'deezer';
 const DEEZER_API = 'https://api.deezer.com';
@@ -54,7 +55,7 @@ export const deezerChartsProvider: DataProvider = {
       query.sectionType === 'genre' ||
       query.sectionType === 'top-hits' ||
       (query.strategy === 'plugin' &&
-        query.pluginHooks?.dataProviders?.includes(`${PLUGIN_ID}:charts`))
+        (query.pluginHooks?.dataProviders?.includes(`${PLUGIN_ID}:charts`) ?? false))
     );
   },
 
@@ -91,10 +92,7 @@ export const deezerChartsProvider: DataProvider = {
  */
 async function fetchChartTracks(limit: number): Promise<UnifiedTrack[]> {
   try {
-    const response = await fetch(`${DEEZER_API}/chart/0/tracks?limit=${limit}`);
-    if (!response.ok) return [];
-
-    const data = (await response.json()) as {
+    const data = await protectedFetchJson<{
       data: Array<{
         id: number;
         title: string;
@@ -108,7 +106,7 @@ async function fetchChartTracks(limit: number): Promise<UnifiedTrack[]> {
           cover_big?: string;
         };
       }>;
-    };
+    }>(`${DEEZER_API}/chart/0/tracks?limit=${limit}`);
 
     return data.data.map((track) => ({
       id: `deezer:${track.id}`,
@@ -158,12 +156,9 @@ async function fetchGenreTracks(
 ): Promise<UnifiedTrack[]> {
   try {
     // First, get the genre ID
-    const genresResponse = await fetch(`${DEEZER_API}/genre`);
-    if (!genresResponse.ok) return [];
-
-    const genresData = (await genresResponse.json()) as {
+    const genresData = await protectedFetchJson<{
       data: Array<{ id: number; name: string }>;
-    };
+    }>(`${DEEZER_API}/genre`);
 
     // Find matching genre
     const genreLower = genre.toLowerCase();
@@ -179,13 +174,7 @@ async function fetchGenreTracks(
     }
 
     // Fetch genre chart
-    const chartResponse = await fetch(
-      `${DEEZER_API}/chart/${matchedGenre.id}/tracks?limit=${limit}`
-    );
-
-    if (!chartResponse.ok) return [];
-
-    const chartData = (await chartResponse.json()) as {
+    const chartData = await protectedFetchJson<{
       data: Array<{
         id: number;
         title: string;
@@ -194,7 +183,7 @@ async function fetchGenreTracks(
         artist: { id: number; name: string };
         album?: { id: number; title: string; cover_medium?: string };
       }>;
-    };
+    }>(`${DEEZER_API}/chart/${matchedGenre.id}/tracks?limit=${limit}`);
 
     return chartData.data.map((track) => ({
       id: `deezer:${track.id}`,

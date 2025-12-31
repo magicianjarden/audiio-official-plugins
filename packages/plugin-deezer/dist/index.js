@@ -5,8 +5,9 @@
  * Supports configurable metadata fetching to allow complementary providers
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DeezerMetadataProvider = void 0;
+exports.unregisterDeezerPipelineHooks = exports.registerDeezerPipelineHooks = exports.deezerChartsProvider = exports.DeezerMetadataProvider = void 0;
 const sdk_1 = require("@audiio/sdk");
+const fetch_utils_1 = require("./fetch-utils");
 const DEEZER_API = 'https://api.deezer.com';
 /** Default settings - fetch everything */
 const DEFAULT_SETTINGS = {
@@ -36,11 +37,7 @@ class DeezerMetadataProvider extends sdk_1.BaseMetadataProvider {
         const limit = options?.limit ?? 25;
         const offset = options?.offset ?? 0;
         const url = `${DEEZER_API}/search?q=${encodeURIComponent(query)}&limit=${limit}&index=${offset}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Deezer API error: ${response.status}`);
-        }
-        const data = await response.json();
+        const data = await (0, fetch_utils_1.protectedFetchJson)(url);
         return {
             tracks: data.data.map(track => this.mapTrack(track)),
             artists: [],
@@ -49,10 +46,7 @@ class DeezerMetadataProvider extends sdk_1.BaseMetadataProvider {
     }
     async getTrack(id) {
         try {
-            const response = await fetch(`${DEEZER_API}/track/${id}`);
-            if (!response.ok)
-                return null;
-            const data = await response.json();
+            const data = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/track/${id}`);
             return this.mapTrack(data);
         }
         catch {
@@ -64,19 +58,26 @@ class DeezerMetadataProvider extends sdk_1.BaseMetadataProvider {
             return null;
         }
         try {
-            // Fetch artist info, top tracks, albums, and related artists in parallel
-            const [artistRes, topTracksRes, albumsRes, relatedRes] = await Promise.all([
-                fetch(`${DEEZER_API}/artist/${id}`),
-                fetch(`${DEEZER_API}/artist/${id}/top?limit=10`),
-                fetch(`${DEEZER_API}/artist/${id}/albums?limit=50`),
-                fetch(`${DEEZER_API}/artist/${id}/related?limit=10`)
-            ]);
-            if (!artistRes.ok)
+            // Fetch artist info first, then additional data sequentially to avoid rate limits
+            const artistData = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/artist/${id}`);
+            if (!artistData.id)
                 return null;
-            const artistData = await artistRes.json();
-            const topTracksData = topTracksRes.ok ? await topTracksRes.json() : { data: [] };
-            const albumsData = albumsRes.ok ? await albumsRes.json() : { data: [] };
-            const relatedData = relatedRes.ok ? await relatedRes.json() : { data: [] };
+            // Fetch additional data with some delay between requests
+            let topTracksData = { data: [] };
+            let albumsData = { data: [] };
+            let relatedData = { data: [] };
+            try {
+                topTracksData = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/artist/${id}/top?limit=10`);
+            }
+            catch { /* ignore */ }
+            try {
+                albumsData = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/artist/${id}/albums?limit=50`);
+            }
+            catch { /* ignore */ }
+            try {
+                relatedData = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/artist/${id}/related?limit=10`);
+            }
+            catch { /* ignore */ }
             // Map top tracks
             const topTracks = topTracksData.data.map(track => this.mapTrack(track));
             // Categorize albums (Deezer includes record_type in album response)
@@ -145,10 +146,7 @@ class DeezerMetadataProvider extends sdk_1.BaseMetadataProvider {
             return null;
         }
         try {
-            const response = await fetch(`${DEEZER_API}/album/${id}`);
-            if (!response.ok)
-                return null;
-            const data = await response.json();
+            const data = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/album/${id}`);
             return this.mapAlbumWithTracks(data);
         }
         catch {
@@ -242,21 +240,22 @@ class DeezerMetadataProvider extends sdk_1.BaseMetadataProvider {
      */
     async getCharts(limit = 20) {
         try {
-            // Fetch charts data in parallel
-            const [tracksRes, artistsRes, albumsRes] = await Promise.all([
-                fetch(`${DEEZER_API}/chart/0/tracks?limit=${limit}`),
-                fetch(`${DEEZER_API}/chart/0/artists?limit=${limit}`),
-                fetch(`${DEEZER_API}/chart/0/albums?limit=${limit}`)
-            ]);
-            const tracksData = tracksRes.ok
-                ? await tracksRes.json()
-                : { data: [] };
-            const artistsData = artistsRes.ok
-                ? await artistsRes.json()
-                : { data: [] };
-            const albumsData = albumsRes.ok
-                ? await albumsRes.json()
-                : { data: [] };
+            // Fetch charts data sequentially to respect rate limits
+            let tracksData = { data: [] };
+            let artistsData = { data: [] };
+            let albumsData = { data: [] };
+            try {
+                tracksData = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/chart/0/tracks?limit=${limit}`);
+            }
+            catch { /* ignore */ }
+            try {
+                artistsData = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/chart/0/artists?limit=${limit}`);
+            }
+            catch { /* ignore */ }
+            try {
+                albumsData = await (0, fetch_utils_1.protectedFetchJson)(`${DEEZER_API}/chart/0/albums?limit=${limit}`);
+            }
+            catch { /* ignore */ }
             return {
                 tracks: tracksData.data.map(track => this.mapTrack(track)),
                 artists: artistsData.data.map(artist => this.mapArtist(artist)),
@@ -268,8 +267,25 @@ class DeezerMetadataProvider extends sdk_1.BaseMetadataProvider {
             return { tracks: [], artists: [], albums: [] };
         }
     }
+    /**
+     * Get circuit breaker status for monitoring
+     */
+    getCircuitStatus() {
+        return (0, fetch_utils_1.getCircuitStatus)();
+    }
+    /**
+     * Reset circuit breaker (for recovery)
+     */
+    resetCircuitBreaker() {
+        (0, fetch_utils_1.resetCircuitBreaker)();
+    }
 }
 exports.DeezerMetadataProvider = DeezerMetadataProvider;
+// Pipeline hooks (for Discover "See All" integration)
+var pipeline_1 = require("./pipeline");
+Object.defineProperty(exports, "deezerChartsProvider", { enumerable: true, get: function () { return pipeline_1.deezerChartsProvider; } });
+Object.defineProperty(exports, "registerDeezerPipelineHooks", { enumerable: true, get: function () { return pipeline_1.registerDeezerPipelineHooks; } });
+Object.defineProperty(exports, "unregisterDeezerPipelineHooks", { enumerable: true, get: function () { return pipeline_1.unregisterDeezerPipelineHooks; } });
 // Default export for addon loading
 exports.default = DeezerMetadataProvider;
 //# sourceMappingURL=index.js.map

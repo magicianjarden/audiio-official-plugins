@@ -37,6 +37,19 @@ export declare class DeezerMetadataProvider extends BaseMetadataProvider {
         artists: Artist[];
         albums: Album[];
     }>;
+    /**
+     * Get circuit breaker status for monitoring
+     */
+    getCircuitStatus(): {
+        state: "closed" | "open" | "half-open";
+        failures: number;
+        canRetryAt: number | null;
+    };
+    /**
+     * Reset circuit breaker (for recovery)
+     */
+    resetCircuitBreaker(): void;
 }
+export { deezerChartsProvider, registerDeezerPipelineHooks, unregisterDeezerPipelineHooks, } from './pipeline';
 export default DeezerMetadataProvider;
 //# sourceMappingURL=index.d.ts.map
