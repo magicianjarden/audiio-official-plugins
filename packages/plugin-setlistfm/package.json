@@ -1,0 +1,32 @@
+{
+  "name": "@audiio/plugin-setlistfm",
+  "version": "1.0.0",
+  "description": "Setlist.fm API integration for past concert setlists",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "audiio": {
+    "type": "plugin",
+    "id": "setlistfm",
+    "roles": ["artist-enrichment"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@audiio/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["audiio", "plugin", "setlistfm", "artist-enrichment", "setlists"],
+  "author": "Audiio",
+  "license": "MIT"
+}

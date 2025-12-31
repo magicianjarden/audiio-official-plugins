@@ -1,0 +1,32 @@
+{
+  "name": "@audiio/plugin-discogs",
+  "version": "1.0.0",
+  "description": "Discogs API integration for artist timeline/discography",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "audiio": {
+    "type": "plugin",
+    "id": "discogs",
+    "roles": ["artist-enrichment"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@audiio/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["audiio", "plugin", "discogs", "artist-enrichment", "timeline"],
+  "author": "Audiio",
+  "license": "MIT"
+}

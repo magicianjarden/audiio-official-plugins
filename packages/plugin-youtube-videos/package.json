@@ -1,0 +1,32 @@
+{
+  "name": "@audiio/plugin-youtube-videos",
+  "version": "1.0.0",
+  "description": "YouTube Data API integration for artist music videos",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "audiio": {
+    "type": "plugin",
+    "id": "youtube-videos",
+    "roles": ["artist-enrichment"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@audiio/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["audiio", "plugin", "youtube", "artist-enrichment", "videos"],
+  "author": "Audiio",
+  "license": "MIT"
+}

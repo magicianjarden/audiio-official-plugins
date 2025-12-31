@@ -1,0 +1,32 @@
+{
+  "name": "@audiio/plugin-bandcamp",
+  "version": "1.0.0",
+  "description": "Bandcamp integration for artist merchandise detection",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "audiio": {
+    "type": "plugin",
+    "id": "bandcamp",
+    "roles": ["artist-enrichment"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@audiio/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["audiio", "plugin", "bandcamp", "artist-enrichment", "merchandise"],
+  "author": "Audiio",
+  "license": "MIT"
+}

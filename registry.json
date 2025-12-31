@@ -73,6 +73,66 @@
       "author": "Audiio",
       "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-karaoke",
       "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-karaoke"
+    },
+    {
+      "id": "fanart",
+      "name": "Fanart.tv Gallery",
+      "version": "1.0.0",
+      "roles": ["artist-enrichment"],
+      "description": "High-quality artist images and backgrounds from Fanart.tv",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-fanart",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-fanart"
+    },
+    {
+      "id": "youtube-videos",
+      "name": "YouTube Music Videos",
+      "version": "1.0.0",
+      "roles": ["artist-enrichment"],
+      "description": "Official music videos from YouTube",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-youtube-videos",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-youtube-videos"
+    },
+    {
+      "id": "bandsintown",
+      "name": "Bandsintown Concerts",
+      "version": "1.0.0",
+      "roles": ["artist-enrichment"],
+      "description": "Upcoming concerts and events from Bandsintown",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-bandsintown",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-bandsintown"
+    },
+    {
+      "id": "setlistfm",
+      "name": "Setlist.fm",
+      "version": "1.0.0",
+      "roles": ["artist-enrichment"],
+      "description": "Past concert setlists from Setlist.fm",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-setlistfm",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-setlistfm"
+    },
+    {
+      "id": "discogs",
+      "name": "Discogs Timeline",
+      "version": "1.0.0",
+      "roles": ["artist-enrichment"],
+      "description": "Artist discography timeline from Discogs",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-discogs",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-discogs"
+    },
+    {
+      "id": "bandcamp",
+      "name": "Bandcamp Merch",
+      "version": "1.0.0",
+      "roles": ["artist-enrichment"],
+      "description": "Artist merchandise detection from Bandcamp",
+      "author": "Audiio",
+      "downloadUrl": "git:https://github.com/magicianjarden/audiio-official-plugins.git#packages/plugin-bandcamp",
+      "homepage": "https://github.com/magicianjarden/audiio-official-plugins/tree/main/packages/plugin-bandcamp"
     }
   ]
 }
