@@ -6,7 +6,7 @@
  * exponential backoff, and User-Agent rotation to prevent API blocks.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetCircuitBreaker = exports.getCircuitStatus = exports.protectedFetchJson = exports.protectedFetch = exports.deezerFetch = void 0;
+exports.setProxyUrl = exports.resetCircuitBreaker = exports.getCircuitStatus = exports.protectedFetchJson = exports.protectedFetch = exports.deezerFetch = void 0;
 // Realistic browser User-Agent strings
 const USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -39,6 +39,8 @@ class DeezerFetchClient {
     inFlightRequests = new Map();
     // Current User-Agent
     userAgent;
+    // Proxy URL for bypassing IP blocks
+    proxyUrl = null;
     constructor() {
         this.userAgent = this.getRandomUserAgent();
         this.startRateLimiter();
@@ -111,6 +113,16 @@ class DeezerFetchClient {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
     /**
+     * Build the request URL, applying proxy if configured
+     */
+    buildRequestUrl(url) {
+        if (this.proxyUrl) {
+            // corsproxy.io format: https://corsproxy.io/?url
+            return `${this.proxyUrl}${encodeURIComponent(url)}`;
+        }
+        return url;
+    }
+    /**
      * Get circuit breaker status for monitoring
      */
     getCircuitStatus() {
@@ -147,7 +159,8 @@ class DeezerFetchClient {
                     // Retry with exponential backoff
                     for (let attempt = 1; attempt <= 3; attempt++) {
                         try {
-                            const response = await fetch(url, {
+                            const requestUrl = this.buildRequestUrl(url);
+                            const response = await fetch(requestUrl, {
                                 ...options,
                                 headers: {
                                     'User-Agent': this.userAgent,
@@ -228,6 +241,13 @@ class DeezerFetchClient {
         return response.json();
     }
     /**
+     * Set proxy URL for requests
+     */
+    setProxyUrl(url) {
+        this.proxyUrl = url;
+        console.log(`[Deezer] Proxy ${url ? 'enabled: ' + url : 'disabled'}`);
+    }
+    /**
      * Reset circuit breaker (for testing/recovery)
      */
     resetCircuitBreaker() {
@@ -250,6 +270,9 @@ class DeezerFetchClient {
 }
 // Singleton instance
 exports.deezerFetch = new DeezerFetchClient();
+// Enable proxy by default to avoid IP blocks
+// Using corsproxy.io as a public CORS proxy
+exports.deezerFetch.setProxyUrl('https://corsproxy.io/?');
 // Convenience exports
 const protectedFetch = (url, options) => exports.deezerFetch.fetch(url, options);
 exports.protectedFetch = protectedFetch;
@@ -259,4 +282,6 @@ const getCircuitStatus = () => exports.deezerFetch.getCircuitStatus();
 exports.getCircuitStatus = getCircuitStatus;
 const resetCircuitBreaker = () => exports.deezerFetch.resetCircuitBreaker();
 exports.resetCircuitBreaker = resetCircuitBreaker;
+const setProxyUrl = (url) => exports.deezerFetch.setProxyUrl(url);
+exports.setProxyUrl = setProxyUrl;
 //# sourceMappingURL=fetch-utils.js.map

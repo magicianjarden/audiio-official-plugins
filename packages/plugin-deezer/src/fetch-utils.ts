@@ -55,6 +55,9 @@ class DeezerFetchClient {
   // Current User-Agent
   private userAgent: string;
 
+  // Proxy URL for bypassing IP blocks
+  private proxyUrl: string | null = null;
+
   constructor() {
     this.userAgent = this.getRandomUserAgent();
     this.startRateLimiter();
@@ -135,6 +138,17 @@ class DeezerFetchClient {
   }
 
   /**
+   * Build the request URL, applying proxy if configured
+   */
+  private buildRequestUrl(url: string): string {
+    if (this.proxyUrl) {
+      // corsproxy.io format: https://corsproxy.io/?url
+      return `${this.proxyUrl}${encodeURIComponent(url)}`;
+    }
+    return url;
+  }
+
+  /**
    * Get circuit breaker status for monitoring
    */
   getCircuitStatus(): { state: CircuitState; failures: number; canRetryAt: number | null } {
@@ -175,7 +189,8 @@ class DeezerFetchClient {
           // Retry with exponential backoff
           for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-              const response = await fetch(url, {
+              const requestUrl = this.buildRequestUrl(url);
+              const response = await fetch(requestUrl, {
                 ...options,
                 headers: {
                   'User-Agent': this.userAgent,
@@ -259,6 +274,14 @@ class DeezerFetchClient {
   }
 
   /**
+   * Set proxy URL for requests
+   */
+  setProxyUrl(url: string | null): void {
+    this.proxyUrl = url;
+    console.log(`[Deezer] Proxy ${url ? 'enabled: ' + url : 'disabled'}`);
+  }
+
+  /**
    * Reset circuit breaker (for testing/recovery)
    */
   resetCircuitBreaker(): void {
@@ -284,8 +307,13 @@ class DeezerFetchClient {
 // Singleton instance
 export const deezerFetch = new DeezerFetchClient();
 
+// Enable proxy by default to avoid IP blocks
+// Using corsproxy.io as a public CORS proxy
+deezerFetch.setProxyUrl('https://corsproxy.io/?');
+
 // Convenience exports
 export const protectedFetch = (url: string, options?: RequestInit) => deezerFetch.fetch(url, options);
 export const protectedFetchJson = <T>(url: string, options?: RequestInit) => deezerFetch.fetchJson<T>(url, options);
 export const getCircuitStatus = () => deezerFetch.getCircuitStatus();
 export const resetCircuitBreaker = () => deezerFetch.resetCircuitBreaker();
+export const setProxyUrl = (url: string | null) => deezerFetch.setProxyUrl(url);

@@ -18,6 +18,7 @@ declare class DeezerFetchClient {
     private requestInterval;
     private inFlightRequests;
     private userAgent;
+    private proxyUrl;
     constructor();
     private getRandomUserAgent;
     private rotateUserAgent;
@@ -27,6 +28,10 @@ declare class DeezerFetchClient {
     private recordFailure;
     private calculateBackoff;
     private sleep;
+    /**
+     * Build the request URL, applying proxy if configured
+     */
+    private buildRequestUrl;
     /**
      * Get circuit breaker status for monitoring
      */
@@ -43,6 +48,10 @@ declare class DeezerFetchClient {
      * Fetch and parse JSON with all safeguards
      */
     fetchJson<T>(url: string, options?: RequestInit): Promise<T>;
+    /**
+     * Set proxy URL for requests
+     */
+    setProxyUrl(url: string | null): void;
     /**
      * Reset circuit breaker (for testing/recovery)
      */
@@ -61,5 +70,6 @@ export declare const getCircuitStatus: () => {
     canRetryAt: number | null;
 };
 export declare const resetCircuitBreaker: () => void;
+export declare const setProxyUrl: (url: string | null) => void;
 export {};
 //# sourceMappingURL=fetch-utils.d.ts.map
