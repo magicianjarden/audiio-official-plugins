@@ -34,7 +34,7 @@ function toUnifiedTrack(track: MetadataTrack): UnifiedTrack {
       metadataProvider: 'deezer',
       matchConfidence: 1,
       externalIds: track.externalIds || { deezer: track.id },
-      lastUpdated: new Date(),
+      lastUpdated: new Date().toISOString(), // Use ISO string for IPC serialization
     },
   };
 }
@@ -139,7 +139,7 @@ async function fetchChartTracks(limit: number): Promise<UnifiedTrack[]> {
         metadataProvider: 'deezer',
         matchConfidence: 1,
         externalIds: { deezer: String(track.id) },
-        lastUpdated: new Date(),
+        lastUpdated: new Date().toISOString(), // Use ISO string for IPC serialization
       },
     }));
   } catch {
@@ -205,7 +205,7 @@ async function fetchGenreTracks(
         metadataProvider: 'deezer',
         matchConfidence: 1,
         externalIds: { deezer: String(track.id) },
-        lastUpdated: new Date(),
+        lastUpdated: new Date().toISOString(), // Use ISO string for IPC serialization
       },
     }));
   } catch {

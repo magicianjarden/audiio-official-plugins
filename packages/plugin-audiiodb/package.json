@@ -1,0 +1,32 @@
+{
+  "name": "@audiio/plugin-audiiodb",
+  "version": "1.0.0",
+  "description": "AudiioDB metadata provider for Audiio - open-source music database with 256M tracks",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "audiio": {
+    "type": "plugin",
+    "id": "audiiodb",
+    "roles": ["metadata-provider"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@audiio/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["audiio", "plugin", "audiiodb", "metadata", "open-source", "music-database"],
+  "author": "Audiio",
+  "license": "MIT"
+}

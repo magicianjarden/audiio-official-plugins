@@ -1,0 +1,32 @@
+{
+  "name": "@audiio/plugin-musicbrainz",
+  "version": "1.0.0",
+  "description": "MusicBrainz metadata provider for Audiio - free, open music database",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "audiio": {
+    "type": "plugin",
+    "id": "musicbrainz",
+    "roles": ["metadata-provider"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@audiio/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["audiio", "plugin", "musicbrainz", "metadata", "open-source"],
+  "author": "Audiio",
+  "license": "MIT"
+}

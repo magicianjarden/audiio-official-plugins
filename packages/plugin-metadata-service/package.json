@@ -1,0 +1,22 @@
+{
+  "name": "@audiio/plugin-metadata-service",
+  "version": "1.0.0",
+  "description": "Audiio plugin that connects to the metadata aggregation service",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@audiio/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@audiio/core": "workspace:*",
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@audiio/core": "workspace:*"
+  }
+}
