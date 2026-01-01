@@ -6,11 +6,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.YouTubeVideosProvider = void 0;
 const sdk_1 = require("@audiio/sdk");
-// Piped API instances (no auth required)
+// Piped API instances (no auth required) - updated with working instances
 const PIPED_INSTANCES = [
-    'https://pipedapi.kavin.rocks',
-    'https://pipedapi.adminforge.de',
-    'https://api.piped.yt',
+    'https://pipedapi.r4fo.com',
+    'https://api.piped.privacydev.net',
+    'https://pipedapi.darkness.services',
+    'https://pipedapi.drgns.space',
+    'https://pipedapi.leptons.xyz',
 ];
 class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
     id = 'youtube-videos';

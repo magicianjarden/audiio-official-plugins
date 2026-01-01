@@ -8,11 +8,13 @@ import {
   type MusicVideo
 } from '@audiio/sdk';
 
-// Piped API instances (no auth required)
+// Piped API instances (no auth required) - updated with working instances
 const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://pipedapi.adminforge.de',
-  'https://api.piped.yt',
+  'https://pipedapi.r4fo.com',
+  'https://api.piped.privacydev.net',
+  'https://pipedapi.darkness.services',
+  'https://pipedapi.drgns.space',
+  'https://pipedapi.leptons.xyz',
 ];
 
 interface PipedSearchResult {
