@@ -43,7 +43,6 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             // Dynamic import for ESM module
             const dynamicImport = new Function('specifier', 'return import(specifier)');
             const ytModule = await dynamicImport('youtubei.js');
-            console.log('[YouTube Videos] Module exports:', Object.keys(ytModule));
             const { Innertube, UniversalCache } = ytModule;
             // Create Innertube instance
             this.yt = await Innertube.create({
@@ -51,24 +50,51 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
                 generate_session_locally: true,
                 fetch: globalThis.fetch,
             });
-            // Try to patch the runtime evaluate after creation
-            // Access the internal player's decipher mechanism
-            try {
-                const session = this.yt?.session;
-                if (session?.player) {
-                    console.log('[YouTube Videos] Player found, patching evaluate...');
-                    // The player uses Platform.shim.runtime internally
-                    // Try to find and patch it
-                    const jsRuntime = await dynamicImport('youtubei.js/dist/src/platform/jsruntime/default.js').catch(() => null);
-                    if (jsRuntime?.default) {
-                        console.log('[YouTube Videos] Patching jsruntime.evaluate');
-                        jsRuntime.default.evaluate = (code) => vm.runInNewContext(code);
-                        jsRuntime.default.eval = (code) => vm.runInNewContext(code);
-                    }
+            // Patch the Player's decipher method directly to use vm
+            if (this.yt?.session?.player) {
+                const player = this.yt.session.player;
+                const originalDecipher = player.decipher?.bind(player);
+                if (originalDecipher) {
+                    console.log('[YouTube Videos] Wrapping Player.decipher with vm evaluator');
+                    player.decipher = (url, signatureCipher) => {
+                        // Parse the signature cipher
+                        const params = new URLSearchParams(signatureCipher);
+                        const sig = params.get('s');
+                        const sp = params.get('sp') || 'sig';
+                        const baseUrl = params.get('url') || url;
+                        if (!sig || !player.sig_decipher_sc) {
+                            console.log('[YouTube Videos] No signature to decipher, using base URL');
+                            return baseUrl;
+                        }
+                        try {
+                            // Run the decipher script in vm context
+                            const decipherScript = player.sig_decipher_sc;
+                            const context = { sig };
+                            const decipheredSig = vm.runInNewContext(`${decipherScript}; sig`, context);
+                            const finalUrl = new URL(baseUrl);
+                            finalUrl.searchParams.set(sp, decipheredSig);
+                            // Handle n parameter if present
+                            if (player.nsig_decipher_sc) {
+                                const n = finalUrl.searchParams.get('n');
+                                if (n) {
+                                    try {
+                                        const nContext = { n };
+                                        const decipheredN = vm.runInNewContext(`${player.nsig_decipher_sc}; n`, nContext);
+                                        finalUrl.searchParams.set('n', decipheredN);
+                                    }
+                                    catch (nErr) {
+                                        console.log('[YouTube Videos] N-sig decipher failed:', nErr);
+                                    }
+                                }
+                            }
+                            return finalUrl.toString();
+                        }
+                        catch (err) {
+                            console.log('[YouTube Videos] Decipher failed:', err);
+                            return baseUrl;
+                        }
+                    };
                 }
-            }
-            catch (patchError) {
-                console.log('[YouTube Videos] Could not patch runtime:', patchError);
             }
             console.log('[YouTube Videos] Initialized successfully');
         }
