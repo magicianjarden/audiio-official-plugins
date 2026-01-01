@@ -28,20 +28,9 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       // Dynamic import for ESM module
       const dynamicImport = new Function('specifier', 'return import(specifier)');
       const ytModule = await dynamicImport('youtubei.js');
-      const { Innertube, UniversalCache, Platform } = ytModule;
+      console.log('[YouTube Videos] Module exports:', Object.keys(ytModule));
 
-      // Patch the Platform runtime's evaluate function BEFORE creating Innertube
-      // This is needed because decipher uses Platform.shim.runtime.evaluate
-      if (Platform?.shim?.runtime) {
-        console.log('[YouTube Videos] Patching Platform.shim.runtime.evaluate with vm.runInNewContext');
-        Platform.shim.runtime.evaluate = (code: string) => {
-          return vm.runInNewContext(code);
-        };
-        // Also patch eval alias
-        Platform.shim.runtime.eval = (code: string) => {
-          return vm.runInNewContext(code);
-        };
-      }
+      const { Innertube, UniversalCache } = ytModule;
 
       // Create Innertube instance
       this.yt = await Innertube.create({
@@ -49,6 +38,25 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
         generate_session_locally: true,
         fetch: globalThis.fetch,
       });
+
+      // Try to patch the runtime evaluate after creation
+      // Access the internal player's decipher mechanism
+      try {
+        const session = this.yt?.session as any;
+        if (session?.player) {
+          console.log('[YouTube Videos] Player found, patching evaluate...');
+          // The player uses Platform.shim.runtime internally
+          // Try to find and patch it
+          const jsRuntime = await dynamicImport('youtubei.js/dist/src/platform/jsruntime/default.js').catch(() => null);
+          if (jsRuntime?.default) {
+            console.log('[YouTube Videos] Patching jsruntime.evaluate');
+            jsRuntime.default.evaluate = (code: string) => vm.runInNewContext(code);
+            jsRuntime.default.eval = (code: string) => vm.runInNewContext(code);
+          }
+        }
+      } catch (patchError) {
+        console.log('[YouTube Videos] Could not patch runtime:', patchError);
+      }
 
       console.log('[YouTube Videos] Initialized successfully');
     } catch (error) {
