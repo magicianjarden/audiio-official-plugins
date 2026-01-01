@@ -3,33 +3,9 @@
  * YouTube Videos Provider
  * Provides music videos using youtubei.js (same as YouTube Music plugin).
  */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.YouTubeVideosProvider = void 0;
 const sdk_1 = require("@audiio/sdk");
-const vm = __importStar(require("vm"));
 class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
     id = 'youtube-videos';
     name = 'YouTube Music Videos';
@@ -43,58 +19,22 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             // Dynamic import for ESM module
             const dynamicImport = new Function('specifier', 'return import(specifier)');
             const ytModule = await dynamicImport('youtubei.js');
-            const { Innertube, UniversalCache } = ytModule;
-            // Create Innertube instance
-            this.yt = await Innertube.create({
-                cache: new UniversalCache(true),
-                generate_session_locally: true,
-                fetch: globalThis.fetch,
-            });
-            // Patch the Player's decipher method directly to use vm
-            if (this.yt?.session?.player) {
-                const player = this.yt.session.player;
-                const originalDecipher = player.decipher?.bind(player);
-                if (originalDecipher) {
-                    console.log('[YouTube Videos] Wrapping Player.decipher with vm evaluator');
-                    player.decipher = (url, signatureCipher) => {
-                        // Parse the signature cipher
-                        const params = new URLSearchParams(signatureCipher);
-                        const sig = params.get('s');
-                        const sp = params.get('sp') || 'sig';
-                        const baseUrl = params.get('url') || url;
-                        if (!sig || !player.sig_decipher_sc) {
-                            console.log('[YouTube Videos] No signature to decipher, using base URL');
-                            return baseUrl;
-                        }
-                        try {
-                            // Run the decipher script in vm context
-                            const decipherScript = player.sig_decipher_sc;
-                            const context = { sig };
-                            const decipheredSig = vm.runInNewContext(`${decipherScript}; sig`, context);
-                            const finalUrl = new URL(baseUrl);
-                            finalUrl.searchParams.set(sp, decipheredSig);
-                            // Handle n parameter if present
-                            if (player.nsig_decipher_sc) {
-                                const n = finalUrl.searchParams.get('n');
-                                if (n) {
-                                    try {
-                                        const nContext = { n };
-                                        const decipheredN = vm.runInNewContext(`${player.nsig_decipher_sc}; n`, nContext);
-                                        finalUrl.searchParams.set('n', decipheredN);
-                                    }
-                                    catch (nErr) {
-                                        console.log('[YouTube Videos] N-sig decipher failed:', nErr);
-                                    }
-                                }
-                            }
-                            return finalUrl.toString();
-                        }
-                        catch (err) {
-                            console.log('[YouTube Videos] Decipher failed:', err);
-                            return baseUrl;
-                        }
-                    };
-                }
+            const { Innertube, UniversalCache, ClientType } = ytModule;
+            // Use ANDROID client like YTMusic - provides direct URLs without cipher
+            try {
+                console.log('[YouTube Videos] Trying Android client...');
+                this.yt = await Innertube.create({
+                    client_type: ClientType.ANDROID,
+                    cache: new UniversalCache(true),
+                });
+                console.log('[YouTube Videos] Android client initialized');
+            }
+            catch (e) {
+                console.log('[YouTube Videos] Android client failed, using web client');
+                this.yt = await Innertube.create({
+                    cache: new UniversalCache(true),
+                    generate_session_locally: true,
+                });
             }
             console.log('[YouTube Videos] Initialized successfully');
         }
@@ -209,159 +149,112 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
         }
         try {
             console.log(`[YouTube Videos] Getting stream for video: ${videoId}, quality: ${preferredQuality}`);
-            // Use getInfo for full streaming data
-            const info = await this.yt.getInfo(videoId);
-            if (!info.streaming_data) {
-                console.error('[YouTube Videos] No streaming data available');
-                return null;
-            }
-            const streamingData = info.streaming_data;
-            // Try HLS manifest URL first (works for many videos)
-            if (streamingData.hls_manifest_url) {
-                console.log('[YouTube Videos] Using HLS manifest URL');
-                return {
-                    url: streamingData.hls_manifest_url,
-                    mimeType: 'application/x-mpegURL',
-                    quality: preferredQuality,
-                    audioOnly: false,
-                    expiresAt: Date.now() + 3600000,
-                };
-            }
-            // Try DASH manifest URL
-            if (streamingData.dash_manifest_url) {
-                console.log('[YouTube Videos] Using DASH manifest URL');
-                return {
-                    url: streamingData.dash_manifest_url,
-                    mimeType: 'application/dash+xml',
-                    quality: preferredQuality,
-                    audioOnly: false,
-                    expiresAt: Date.now() + 3600000,
-                };
-            }
-            // Parse preferred quality to height
             const preferredHeight = parseInt(preferredQuality.replace('p', '')) || 720;
-            // Try combined formats first (video + audio in one stream)
-            const combinedFormats = (info.streaming_data.formats || []);
-            console.log(`[YouTube Videos] Combined formats: ${combinedFormats.length}`);
-            let bestCombined = null;
-            for (const format of combinedFormats) {
-                console.log(`[YouTube Videos] Format ${format.itag}: mime=${format.mime_type}, hasUrl=${!!format.url}, hasCipher=${!!format.signatureCipher}`);
-                if (!format.url)
-                    continue;
-                const mimeType = format.mime_type?.split(';')[0] || '';
-                if (!mimeType.startsWith('video/'))
-                    continue;
-                const height = format.height || 0;
-                const quality = format.quality_label || `${height}p`;
-                console.log(`[YouTube Videos] Found format: ${quality} (${height}p), ${mimeType}`);
-                if (!bestCombined ||
-                    (height <= preferredHeight && height > (bestCombined.height || 0)) ||
-                    ((bestCombined.height || 0) > preferredHeight && height <= preferredHeight)) {
-                    bestCombined = { url: format.url, mimeType, quality, width: format.width, height };
-                }
-            }
-            // If we found a combined format, use it
-            if (bestCombined) {
-                console.log(`[YouTube Videos] Using combined stream: ${bestCombined.quality}`);
-                return {
-                    url: bestCombined.url,
-                    mimeType: bestCombined.mimeType,
-                    quality: bestCombined.quality,
-                    width: bestCombined.width,
-                    height: bestCombined.height,
-                    audioOnly: false,
-                    expiresAt: Date.now() + 3600000,
-                };
-            }
-            // Try adaptive formats (separate video + audio streams)
-            const adaptiveFormats = (info.streaming_data.adaptive_formats || []);
-            console.log(`[YouTube Videos] Adaptive formats: ${adaptiveFormats.length}`);
-            let bestVideo = null;
-            let bestAudio = null;
-            for (const format of adaptiveFormats) {
-                if (!format.url)
-                    continue;
-                const mimeType = format.mime_type?.split(';')[0] || '';
-                if (mimeType.startsWith('video/')) {
-                    const height = format.height || 0;
-                    const quality = format.quality_label || `${height}p`;
-                    console.log(`[YouTube Videos] Adaptive video: ${quality}, ${mimeType}`);
-                    if (!bestVideo ||
-                        (height <= preferredHeight && height > (bestVideo.height || 0)) ||
-                        ((bestVideo.height || 0) > preferredHeight && height <= preferredHeight)) {
-                        bestVideo = { url: format.url, mimeType, quality, width: format.width, height };
-                    }
-                }
-                else if (mimeType.startsWith('audio/')) {
-                    const bitrate = format.bitrate || 0;
-                    if (!bestAudio || bitrate > bestAudio.bitrate) {
-                        bestAudio = { url: format.url, mimeType, bitrate };
-                    }
-                }
-            }
-            if (bestVideo) {
-                console.log(`[YouTube Videos] Using adaptive stream: ${bestVideo.quality}, hasAudio: ${!!bestAudio}`);
-                return {
-                    url: bestVideo.url,
-                    mimeType: bestVideo.mimeType,
-                    quality: bestVideo.quality,
-                    width: bestVideo.width,
-                    height: bestVideo.height,
-                    audioOnly: false,
-                    audioUrl: bestAudio?.url,
-                    audioMimeType: bestAudio?.mimeType,
-                    expiresAt: Date.now() + 3600000,
-                };
-            }
-            // Last resort: try chooseFormat which handles deciphering internally
-            console.log('[YouTube Videos] Trying chooseFormat method...');
+            // Approach 1: Try YouTube Music endpoint (works well for music videos)
             try {
-                const infoAny = info;
-                if (infoAny.chooseFormat) {
-                    const format = infoAny.chooseFormat({ quality: 'best', type: 'video+audio' });
-                    if (format) {
-                        let url = format.url;
-                        // Try to decipher if no direct URL
-                        if (!url && format.decipher && this.yt?.session?.player) {
-                            console.log('[YouTube Videos] Deciphering URL...');
-                            try {
-                                url = format.decipher(this.yt.session.player);
-                            }
-                            catch (decipherError) {
-                                console.log('[YouTube Videos] Decipher failed:', decipherError);
-                            }
-                        }
-                        if (url && typeof url === 'string') {
-                            console.log(`[YouTube Videos] Got URL from chooseFormat: ${format.quality_label}`);
-                            // Return a plain object (no proxies or non-serializable values)
-                            const result = {
-                                url: String(url),
-                                mimeType: String(format.mime_type?.split(';')[0] || 'video/mp4'),
-                                quality: String(format.quality_label || preferredQuality),
-                                width: format.width ? Number(format.width) : undefined,
-                                height: format.height ? Number(format.height) : undefined,
+                console.log('[YouTube Videos] Trying music.getInfo()...');
+                const musicInfo = await this.yt.music.getInfo(videoId);
+                if (musicInfo) {
+                    const streamingData = musicInfo.streaming_data;
+                    if (streamingData?.adaptive_formats) {
+                        // Find best video format with direct URL
+                        const videoFormats = streamingData.adaptive_formats
+                            .filter(f => f.mime_type?.includes('video') && f.url && !f.signatureCipher)
+                            .sort((a, b) => (b.height || 0) - (a.height || 0));
+                        const audioFormats = streamingData.adaptive_formats
+                            .filter(f => f.mime_type?.includes('audio') && f.url && !f.signatureCipher)
+                            .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+                        // Find best video at or below preferred quality
+                        const bestVideo = videoFormats.find(f => (f.height || 0) <= preferredHeight) || videoFormats[videoFormats.length - 1];
+                        const bestAudio = audioFormats[0];
+                        if (bestVideo?.url) {
+                            console.log(`[YouTube Videos] Got video from music.getInfo: ${bestVideo.quality_label}`);
+                            return {
+                                url: String(bestVideo.url),
+                                mimeType: String(bestVideo.mime_type?.split(';')[0] || 'video/mp4'),
+                                quality: String(bestVideo.quality_label || `${bestVideo.height}p`),
+                                width: bestVideo.width,
+                                height: bestVideo.height,
                                 audioOnly: false,
+                                audioUrl: bestAudio?.url ? String(bestAudio.url) : undefined,
+                                audioMimeType: bestAudio?.mime_type?.split(';')[0],
                                 expiresAt: Date.now() + 3600000,
                             };
-                            return result;
                         }
                     }
                 }
             }
-            catch (formatError) {
-                console.log('[YouTube Videos] chooseFormat failed:', formatError);
+            catch (musicError) {
+                console.log('[YouTube Videos] music.getInfo() failed:', musicError);
             }
-            // Final fallback: return YouTube watch URL for webview playback
-            console.log('[YouTube Videos] Falling back to watch URL');
-            return {
-                // Use regular watch URL in webview - works for all videos including embed-restricted ones
-                url: `https://www.youtube.com/watch?v=${videoId}`,
-                mimeType: 'text/html',
-                quality: preferredQuality,
-                audioOnly: false,
-                expiresAt: Date.now() + 86400000, // 24 hours
-                isEmbed: true,
-            };
+            // Approach 2: Try getBasicInfo like YTMusic does
+            try {
+                console.log('[YouTube Videos] Trying getBasicInfo()...');
+                const basicInfo = await this.yt.getBasicInfo(videoId);
+                const streamingData = basicInfo.streaming_data;
+                if (streamingData) {
+                    console.log('[YouTube Videos] Streaming data:', 'formats:', streamingData.formats?.length || 0, 'adaptive:', streamingData.adaptive_formats?.length || 0);
+                    // Check combined formats first
+                    if (streamingData.formats) {
+                        for (const format of streamingData.formats) {
+                            const f = format;
+                            console.log('[YouTube Videos] Format:', f.mime_type, 'URL:', !!f.url, 'Cipher:', !!f.signatureCipher);
+                            if (f.url && !f.signatureCipher && f.mime_type?.includes('video')) {
+                                console.log(`[YouTube Videos] Found direct URL: ${f.quality_label}`);
+                                return {
+                                    url: String(f.url),
+                                    mimeType: String(f.mime_type?.split(';')[0] || 'video/mp4'),
+                                    quality: String(f.quality_label || preferredQuality),
+                                    width: f.width,
+                                    height: f.height,
+                                    audioOnly: false,
+                                    expiresAt: Date.now() + 3600000,
+                                };
+                            }
+                        }
+                    }
+                    // Check adaptive formats
+                    if (streamingData.adaptive_formats) {
+                        let bestVideo = null;
+                        let bestAudio = null;
+                        for (const format of streamingData.adaptive_formats) {
+                            const f = format;
+                            if (!f.url || f.signatureCipher)
+                                continue;
+                            if (f.mime_type?.includes('video')) {
+                                const height = f.height || 0;
+                                if (!bestVideo || (height <= preferredHeight && height > (bestVideo.height || 0))) {
+                                    bestVideo = f;
+                                }
+                            }
+                            else if (f.mime_type?.includes('audio')) {
+                                if (!bestAudio || (f.bitrate || 0) > (bestAudio.bitrate || 0)) {
+                                    bestAudio = f;
+                                }
+                            }
+                        }
+                        if (bestVideo?.url) {
+                            console.log(`[YouTube Videos] Found adaptive video: ${bestVideo.quality_label}`);
+                            return {
+                                url: String(bestVideo.url),
+                                mimeType: String(bestVideo.mime_type?.split(';')[0] || 'video/mp4'),
+                                quality: String(bestVideo.quality_label || `${bestVideo.height}p`),
+                                width: bestVideo.width,
+                                height: bestVideo.height,
+                                audioOnly: false,
+                                audioUrl: bestAudio?.url ? String(bestAudio.url) : undefined,
+                                audioMimeType: bestAudio?.mime_type?.split(';')[0],
+                                expiresAt: Date.now() + 3600000,
+                            };
+                        }
+                    }
+                }
+            }
+            catch (basicError) {
+                console.log('[YouTube Videos] getBasicInfo() failed:', basicError);
+            }
+            console.error('[YouTube Videos] No suitable format found');
+            return null;
         }
         catch (error) {
             console.error('[YouTube Videos] Failed to get video stream:', error);
