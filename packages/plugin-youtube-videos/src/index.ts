@@ -28,29 +28,27 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       // Dynamic import for ESM module
       const dynamicImport = new Function('specifier', 'return import(specifier)');
       const ytModule = await dynamicImport('youtubei.js');
-      const { Innertube, UniversalCache } = ytModule;
+      const { Innertube, UniversalCache, Platform } = ytModule;
 
-      // Create Innertube with custom JS evaluator for Electron compatibility
+      // Patch the Platform runtime's evaluate function BEFORE creating Innertube
+      // This is needed because decipher uses Platform.shim.runtime.evaluate
+      if (Platform?.shim?.runtime) {
+        console.log('[YouTube Videos] Patching Platform.shim.runtime.evaluate with vm.runInNewContext');
+        Platform.shim.runtime.evaluate = (code: string) => {
+          return vm.runInNewContext(code);
+        };
+        // Also patch eval alias
+        Platform.shim.runtime.eval = (code: string) => {
+          return vm.runInNewContext(code);
+        };
+      }
+
+      // Create Innertube instance
       this.yt = await Innertube.create({
         cache: new UniversalCache(true),
         generate_session_locally: true,
-        // Custom evaluator using Node's vm module (works in Electron main process)
         fetch: globalThis.fetch,
-        // Provide custom JavaScript interpreter for deciphering
       });
-
-      // Patch the player's evaluate function to use vm.runInNewContext
-      if (this.yt?.session?.player) {
-        const player = this.yt.session.player as unknown as {
-          evaluate?: (code: string) => unknown;
-        };
-        if (player) {
-          console.log('[YouTube Videos] Patching player evaluator with vm.runInNewContext');
-          (player as any).evaluate = (code: string) => {
-            return vm.runInNewContext(code);
-          };
-        }
-      }
 
       console.log('[YouTube Videos] Initialized successfully');
     } catch (error) {
