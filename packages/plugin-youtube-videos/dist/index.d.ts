@@ -1,6 +1,6 @@
 /**
  * YouTube Videos Provider
- * Provides music videos using Piped API (no auth required).
+ * Provides music videos using Invidious API (no auth required).
  */
 import { BaseArtistEnrichmentProvider, type MusicVideo } from '@audiio/sdk';
 export declare class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {

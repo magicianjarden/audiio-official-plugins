@@ -50,7 +50,10 @@ export class BandsintownProvider extends BaseArtistEnrichmentProvider {
       const url = `${BANDSINTOWN_API_URL}/artists/${encodedArtist}/events?app_id=${this.appId}`;
 
       const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Audiio/1.0 (https://github.com/magicianjarden/audiio-official)',
+        },
       });
 
       if (!response.ok) {
