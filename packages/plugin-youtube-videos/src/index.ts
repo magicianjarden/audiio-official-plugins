@@ -410,11 +410,11 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
         console.log('[YouTube Videos] chooseFormat failed:', formatError);
       }
 
-      // Final fallback: return YouTube embed URL for iframe playback
-      console.log('[YouTube Videos] Falling back to embed URL');
+      // Final fallback: return YouTube watch URL for webview playback
+      console.log('[YouTube Videos] Falling back to watch URL');
       return {
-        // Use youtube-nocookie.com for better privacy and embedding compatibility
-        url: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`,
+        // Use regular watch URL in webview - works for all videos including embed-restricted ones
+        url: `https://www.youtube.com/watch?v=${videoId}`,
         mimeType: 'text/html',
         quality: preferredQuality,
         audioOnly: false,
