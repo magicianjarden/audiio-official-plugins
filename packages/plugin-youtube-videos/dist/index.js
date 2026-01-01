@@ -137,7 +137,7 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
         }
         try {
             console.log(`[YouTube Videos] Getting stream for video: ${videoId}, quality: ${preferredQuality}`);
-            // Get video info with basic info for faster loading
+            // Use getBasicInfo - it provides direct URLs without needing decipher
             const info = await this.yt.getBasicInfo(videoId);
             if (!info.streaming_data) {
                 console.error('[YouTube Videos] No streaming data available');
@@ -145,32 +145,36 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             }
             // Parse preferred quality to height
             const preferredHeight = parseInt(preferredQuality.replace('p', '')) || 720;
-            // Helper to get URL from format (handles both direct URLs and ciphered URLs)
-            const getFormatUrl = (format) => {
-                if (format.url)
+            // Helper to get URL - prefer direct URL, avoid decipher (needs JS evaluator in Electron)
+            const getUrl = (format) => {
+                // Check for direct URL first (most common case)
+                if (typeof format.url === 'string' && format.url.startsWith('http')) {
                     return format.url;
-                if (format.decipher) {
-                    try {
-                        return format.decipher(this.yt.session.player);
-                    }
-                    catch {
-                        return null;
-                    }
+                }
+                // Some formats have url as a property that needs to be accessed
+                if (format.url && typeof format.url.toString === 'function') {
+                    const urlStr = format.url.toString();
+                    if (urlStr.startsWith('http'))
+                        return urlStr;
                 }
                 return null;
             };
             // Try combined formats first (video + audio in one stream)
             const combinedFormats = info.streaming_data.formats || [];
+            console.log(`[YouTube Videos] Combined formats: ${combinedFormats.length}`);
             let bestCombined = null;
             for (const format of combinedFormats) {
-                const url = getFormatUrl(format);
-                if (!url)
+                const url = getUrl(format);
+                if (!url) {
+                    console.log(`[YouTube Videos] No direct URL for format ${format.itag}`);
                     continue;
+                }
                 const mimeType = format.mime_type?.split(';')[0] || '';
                 if (!mimeType.startsWith('video/'))
                     continue;
                 const height = format.height || 0;
                 const quality = format.quality_label || `${height}p`;
+                console.log(`[YouTube Videos] Found format: ${quality} (${height}p), ${mimeType}`);
                 if (!bestCombined ||
                     (height <= preferredHeight && height > (bestCombined.height || 0)) ||
                     ((bestCombined.height || 0) > preferredHeight && height <= preferredHeight)) {
@@ -179,7 +183,7 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             }
             // If we found a combined format, use it
             if (bestCombined) {
-                console.log(`[YouTube Videos] Got combined stream: ${bestCombined.quality}`);
+                console.log(`[YouTube Videos] Using combined stream: ${bestCombined.quality}`);
                 return {
                     url: bestCombined.url,
                     mimeType: bestCombined.mimeType,
@@ -192,39 +196,32 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             }
             // Try adaptive formats (separate video + audio streams)
             const adaptiveFormats = info.streaming_data.adaptive_formats || [];
+            console.log(`[YouTube Videos] Adaptive formats: ${adaptiveFormats.length}`);
             let bestVideo = null;
             let bestAudio = null;
-            // Find best video format
             for (const format of adaptiveFormats) {
-                const url = getFormatUrl(format);
+                const url = getUrl(format);
                 if (!url)
                     continue;
                 const mimeType = format.mime_type?.split(';')[0] || '';
-                if (!mimeType.startsWith('video/'))
-                    continue;
-                const height = format.height || 0;
-                const quality = format.quality_label || `${height}p`;
-                if (!bestVideo ||
-                    (height <= preferredHeight && height > (bestVideo.height || 0)) ||
-                    ((bestVideo.height || 0) > preferredHeight && height <= preferredHeight)) {
-                    bestVideo = { url, mimeType, quality, width: format.width, height };
+                if (mimeType.startsWith('video/')) {
+                    const height = format.height || 0;
+                    const quality = format.quality_label || `${height}p`;
+                    if (!bestVideo ||
+                        (height <= preferredHeight && height > (bestVideo.height || 0)) ||
+                        ((bestVideo.height || 0) > preferredHeight && height <= preferredHeight)) {
+                        bestVideo = { url, mimeType, quality, width: format.width, height };
+                    }
                 }
-            }
-            // Find best audio format
-            for (const format of adaptiveFormats) {
-                const url = getFormatUrl(format);
-                if (!url)
-                    continue;
-                const mimeType = format.mime_type?.split(';')[0] || '';
-                if (!mimeType.startsWith('audio/'))
-                    continue;
-                const bitrate = format.bitrate || 0;
-                if (!bestAudio || bitrate > (format.bitrate || 0)) {
-                    bestAudio = { url, mimeType };
+                else if (mimeType.startsWith('audio/')) {
+                    const bitrate = format.bitrate || 0;
+                    if (!bestAudio || bitrate > bestAudio.bitrate) {
+                        bestAudio = { url, mimeType, bitrate };
+                    }
                 }
             }
             if (bestVideo) {
-                console.log(`[YouTube Videos] Got adaptive stream: ${bestVideo.quality}, hasAudio: ${!!bestAudio}`);
+                console.log(`[YouTube Videos] Using adaptive stream: ${bestVideo.quality}, hasAudio: ${!!bestAudio}`);
                 return {
                     url: bestVideo.url,
                     mimeType: bestVideo.mimeType,

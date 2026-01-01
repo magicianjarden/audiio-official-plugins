@@ -164,8 +164,8 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
     try {
       console.log(`[YouTube Videos] Getting stream for video: ${videoId}, quality: ${preferredQuality}`);
 
-      // Use getInfo (not getBasicInfo) to get full streaming data with decipherable URLs
-      const info = await this.yt.getInfo(videoId);
+      // Use getBasicInfo - it provides direct URLs without needing decipher
+      const info = await this.yt.getBasicInfo(videoId);
 
       if (!info.streaming_data) {
         console.error('[YouTube Videos] No streaming data available');
@@ -175,6 +175,20 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       // Parse preferred quality to height
       const preferredHeight = parseInt(preferredQuality.replace('p', '')) || 720;
 
+      // Helper to get URL - prefer direct URL, avoid decipher (needs JS evaluator in Electron)
+      const getUrl = (format: any): string | null => {
+        // Check for direct URL first (most common case)
+        if (typeof format.url === 'string' && format.url.startsWith('http')) {
+          return format.url;
+        }
+        // Some formats have url as a property that needs to be accessed
+        if (format.url && typeof format.url.toString === 'function') {
+          const urlStr = format.url.toString();
+          if (urlStr.startsWith('http')) return urlStr;
+        }
+        return null;
+      };
+
       // Try combined formats first (video + audio in one stream)
       const combinedFormats = info.streaming_data.formats || [];
       console.log(`[YouTube Videos] Combined formats: ${combinedFormats.length}`);
@@ -182,16 +196,11 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       let bestCombined: { url: string; mimeType: string; quality: string; width?: number; height?: number } | null = null;
 
       for (const format of combinedFormats) {
-        // Use decipher method to get the actual URL
-        let url: string | undefined;
-        try {
-          url = format.decipher(this.yt!.session.player);
-        } catch (e) {
-          console.log(`[YouTube Videos] Decipher failed for format: ${format.itag}`);
+        const url = getUrl(format);
+        if (!url) {
+          console.log(`[YouTube Videos] No direct URL for format ${format.itag}`);
           continue;
         }
-
-        if (!url) continue;
 
         const mimeType = format.mime_type?.split(';')[0] || '';
         if (!mimeType.startsWith('video/')) continue;
@@ -199,7 +208,7 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
         const height = format.height || 0;
         const quality = format.quality_label || `${height}p`;
 
-        console.log(`[YouTube Videos] Found combined format: ${quality}, ${mimeType}`);
+        console.log(`[YouTube Videos] Found format: ${quality} (${height}p), ${mimeType}`);
 
         if (!bestCombined ||
             (height <= preferredHeight && height > (bestCombined.height || 0)) ||
@@ -210,7 +219,7 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
 
       // If we found a combined format, use it
       if (bestCombined) {
-        console.log(`[YouTube Videos] Got combined stream: ${bestCombined.quality}`);
+        console.log(`[YouTube Videos] Using combined stream: ${bestCombined.quality}`);
         return {
           url: bestCombined.url,
           mimeType: bestCombined.mimeType,
@@ -229,15 +238,8 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       let bestVideo: { url: string; mimeType: string; quality: string; width?: number; height?: number } | null = null;
       let bestAudio: { url: string; mimeType: string; bitrate: number } | null = null;
 
-      // Find best video format
       for (const format of adaptiveFormats) {
-        let url: string | undefined;
-        try {
-          url = format.decipher(this.yt!.session.player);
-        } catch {
-          continue;
-        }
-
+        const url = getUrl(format);
         if (!url) continue;
 
         const mimeType = format.mime_type?.split(';')[0] || '';
@@ -260,7 +262,7 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       }
 
       if (bestVideo) {
-        console.log(`[YouTube Videos] Got adaptive stream: ${bestVideo.quality}, hasAudio: ${!!bestAudio}`);
+        console.log(`[YouTube Videos] Using adaptive stream: ${bestVideo.quality}, hasAudio: ${!!bestAudio}`);
         return {
           url: bestVideo.url,
           mimeType: bestVideo.mimeType,
