@@ -12,6 +12,7 @@ export declare class YouTubeVideosProvider extends BaseArtistEnrichmentProvider 
     private cacheTTL;
     initialize(): Promise<void>;
     getArtistVideos(artistName: string, limit?: number): Promise<MusicVideo[]>;
+    getAlbumVideos(albumTitle: string, artistName: string, trackNames?: string[], limit?: number): Promise<MusicVideo[]>;
     private mapSearchResult;
     private parseViewCount;
     private formatDuration;

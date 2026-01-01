@@ -66,6 +66,70 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             return [];
         }
     }
+    async getAlbumVideos(albumTitle, artistName, trackNames, limit = 8) {
+        if (!this.yt) {
+            console.warn('[YouTube Videos] Not initialized');
+            return [];
+        }
+        const cacheKey = `album-${albumTitle}-${artistName}-${limit}`;
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+            return cached.data;
+        }
+        try {
+            const seenIds = new Set();
+            const allVideos = [];
+            // Strategy 1: Search for album title + artist
+            const albumQuery = `${albumTitle} ${artistName} official`;
+            console.log(`[YouTube Videos] Searching album: "${albumQuery}"`);
+            const albumResults = await this.yt.search(albumQuery, { type: 'video' });
+            if (albumResults.results) {
+                for (const item of albumResults.results) {
+                    if (allVideos.length >= Math.ceil(limit / 2))
+                        break;
+                    const video = this.mapSearchResult(item);
+                    if (video && !seenIds.has(video.id)) {
+                        seenIds.add(video.id);
+                        allVideos.push(video);
+                    }
+                }
+            }
+            // Strategy 2: Search for individual track titles (top 3)
+            if (trackNames && trackNames.length > 0 && allVideos.length < limit) {
+                const tracksToSearch = trackNames.slice(0, 3);
+                for (const trackName of tracksToSearch) {
+                    if (allVideos.length >= limit)
+                        break;
+                    const trackQuery = `${trackName} ${artistName} official video`;
+                    console.log(`[YouTube Videos] Searching track: "${trackQuery}"`);
+                    try {
+                        const trackResults = await this.yt.search(trackQuery, { type: 'video' });
+                        if (trackResults.results) {
+                            for (const item of trackResults.results) {
+                                if (allVideos.length >= limit)
+                                    break;
+                                const video = this.mapSearchResult(item);
+                                if (video && !seenIds.has(video.id)) {
+                                    seenIds.add(video.id);
+                                    allVideos.push(video);
+                                }
+                            }
+                        }
+                    }
+                    catch (trackError) {
+                        console.warn(`[YouTube Videos] Track search failed for "${trackName}":`, trackError);
+                    }
+                }
+            }
+            console.log(`[YouTube Videos] Found ${allVideos.length} videos for album "${albumTitle}"`);
+            this.cache.set(cacheKey, { data: allVideos, timestamp: Date.now() });
+            return allVideos;
+        }
+        catch (error) {
+            console.error('[YouTube Videos] Album search failed:', error);
+            return [];
+        }
+    }
     mapSearchResult(item) {
         const video = item;
         // Only process video types
