@@ -354,7 +354,8 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             // Final fallback: return YouTube embed URL for iframe playback
             console.log('[YouTube Videos] Falling back to embed URL');
             return {
-                url: `https://www.youtube.com/embed/${videoId}?autoplay=1`,
+                // Use youtube-nocookie.com for better privacy and embedding compatibility
+                url: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`,
                 mimeType: 'text/html',
                 quality: preferredQuality,
                 audioOnly: false,
