@@ -164,12 +164,43 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
     try {
       console.log(`[YouTube Videos] Getting stream for video: ${videoId}, quality: ${preferredQuality}`);
 
-      // Use getBasicInfo - it provides direct URLs without needing decipher
-      const info = await this.yt.getBasicInfo(videoId);
+      // Use getInfo for full streaming data
+      const info = await this.yt.getInfo(videoId);
 
       if (!info.streaming_data) {
         console.error('[YouTube Videos] No streaming data available');
         return null;
+      }
+
+      const streamingData = info.streaming_data as {
+        formats?: unknown[];
+        adaptive_formats?: unknown[];
+        hls_manifest_url?: string;
+        dash_manifest_url?: string;
+      };
+
+      // Try HLS manifest URL first (works for many videos)
+      if (streamingData.hls_manifest_url) {
+        console.log('[YouTube Videos] Using HLS manifest URL');
+        return {
+          url: streamingData.hls_manifest_url,
+          mimeType: 'application/x-mpegURL',
+          quality: preferredQuality,
+          audioOnly: false,
+          expiresAt: Date.now() + 3600000,
+        };
+      }
+
+      // Try DASH manifest URL
+      if (streamingData.dash_manifest_url) {
+        console.log('[YouTube Videos] Using DASH manifest URL');
+        return {
+          url: streamingData.dash_manifest_url,
+          mimeType: 'application/dash+xml',
+          quality: preferredQuality,
+          audioOnly: false,
+          expiresAt: Date.now() + 3600000,
+        };
       }
 
       // Parse preferred quality to height
@@ -271,6 +302,49 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
           audioMimeType: bestAudio?.mimeType,
           expiresAt: Date.now() + 3600000,
         };
+      }
+
+      // Last resort: try chooseFormat which handles deciphering internally
+      console.log('[YouTube Videos] Trying chooseFormat method...');
+      try {
+        const infoAny = info as unknown as {
+          chooseFormat?: (options: { quality: string; type: string }) => {
+            url?: string;
+            decipher?: (player: unknown) => string;
+            mime_type?: string;
+            quality_label?: string;
+            width?: number;
+            height?: number;
+          };
+        };
+
+        if (infoAny.chooseFormat) {
+          const format = infoAny.chooseFormat({ quality: 'best', type: 'video+audio' });
+          if (format) {
+            let url = format.url;
+
+            // Try to decipher if no direct URL
+            if (!url && format.decipher && this.yt?.session?.player) {
+              console.log('[YouTube Videos] Deciphering URL...');
+              url = format.decipher(this.yt.session.player);
+            }
+
+            if (url) {
+              console.log(`[YouTube Videos] Got URL from chooseFormat: ${format.quality_label}`);
+              return {
+                url,
+                mimeType: format.mime_type?.split(';')[0] || 'video/mp4',
+                quality: format.quality_label || preferredQuality,
+                width: format.width,
+                height: format.height,
+                audioOnly: false,
+                expiresAt: Date.now() + 3600000,
+              };
+            }
+          }
+        }
+      } catch (formatError) {
+        console.log('[YouTube Videos] chooseFormat failed:', formatError);
       }
 
       console.error('[YouTube Videos] No suitable format found');
