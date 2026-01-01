@@ -1,6 +1,6 @@
 /**
  * YouTube Videos Provider
- * Provides music videos from YouTube Data API v3.
+ * Provides music videos using Piped API (no auth required).
  */
 
 import {
@@ -8,33 +8,24 @@ import {
   type MusicVideo
 } from '@audiio/sdk';
 
-const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
+// Piped API instances (no auth required)
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.adminforge.de',
+  'https://api.piped.yt',
+];
 
-interface YouTubeSearchResponse {
+interface PipedSearchResult {
   items: Array<{
-    id: { videoId: string };
-    snippet: {
-      publishedAt: string;
-      title: string;
-      thumbnails: {
-        default: { url: string };
-        medium?: { url: string };
-        high?: { url: string };
-      };
-    };
+    type: string;
+    url: string;
+    title: string;
+    thumbnail: string;
+    uploaderName: string;
+    uploadedDate: string;
+    duration: number;
+    views: number;
   }>;
-}
-
-interface YouTubeVideoDetails {
-  items: Array<{
-    id: string;
-    contentDetails: { duration: string };
-    statistics: { viewCount: string };
-  }>;
-}
-
-interface YouTubeSettings {
-  apiKey: string;
 }
 
 export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
@@ -42,23 +33,40 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
   readonly name = 'YouTube Music Videos';
   readonly enrichmentType = 'videos' as const;
 
-  private apiKey: string = '';
   private cache = new Map<string, { data: MusicVideo[]; timestamp: number }>();
   private cacheTTL = 1800000; // 30 minutes
+  private currentInstance = 0;
 
   async initialize(): Promise<void> {
-    console.log('[YouTube Videos] Initializing...');
+    console.log('[YouTube Videos] Initializing with Piped API...');
   }
 
-  updateSettings(settings: Partial<YouTubeSettings>): void {
-    if (settings.apiKey) {
-      this.apiKey = settings.apiKey;
+  private async fetchWithFallback(path: string): Promise<Response> {
+    let lastError: Error | null = null;
+
+    for (let i = 0; i < PIPED_INSTANCES.length; i++) {
+      const instanceIndex = (this.currentInstance + i) % PIPED_INSTANCES.length;
+      const instance = PIPED_INSTANCES[instanceIndex];
+
+      try {
+        const response = await fetch(`${instance}${path}`, {
+          headers: { Accept: 'application/json' },
+        });
+
+        if (response.ok) {
+          this.currentInstance = instanceIndex;
+          return response;
+        }
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`[YouTube Videos] Instance ${instance} failed, trying next...`);
+      }
     }
+
+    throw lastError || new Error('All Piped instances failed');
   }
 
   async getArtistVideos(artistName: string, limit = 10): Promise<MusicVideo[]> {
-    if (!this.apiKey) return [];
-
     const cacheKey = `${artistName}-${limit}`;
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
@@ -67,56 +75,38 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
 
     try {
       const searchQuery = `${artistName} official music video`;
-      const searchParams = new URLSearchParams({
-        part: 'snippet',
-        q: searchQuery,
-        type: 'video',
-        videoCategoryId: '10',
-        maxResults: String(limit),
-        order: 'relevance',
-        key: this.apiKey,
-      });
-
-      const searchResponse = await fetch(`${YOUTUBE_API_URL}/search?${searchParams}`);
-      if (!searchResponse.ok) throw new Error(`HTTP ${searchResponse.status}`);
-
-      const searchData = (await searchResponse.json()) as YouTubeSearchResponse;
-      const videoIds = searchData.items.map((item) => item.id.videoId).join(',');
-
-      if (!videoIds) return [];
-
-      const detailsParams = new URLSearchParams({
-        part: 'contentDetails,statistics',
-        id: videoIds,
-        key: this.apiKey,
-      });
-
-      const detailsResponse = await fetch(`${YOUTUBE_API_URL}/videos?${detailsParams}`);
-      const detailsData = (await detailsResponse.json()) as YouTubeVideoDetails;
-
-      const detailsMap = new Map(
-        detailsData.items.map((item) => [
-          item.id,
-          {
-            duration: this.parseDuration(item.contentDetails.duration),
-            viewCount: parseInt(item.statistics.viewCount, 10) || 0,
-          },
-        ])
+      const response = await this.fetchWithFallback(
+        `/search?q=${encodeURIComponent(searchQuery)}&filter=music_videos`
       );
 
-      const videos: MusicVideo[] = searchData.items.map((item) => {
-        const details = detailsMap.get(item.id.videoId);
-        return {
-          id: item.id.videoId,
-          title: item.snippet.title,
-          thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default.url,
-          publishedAt: item.snippet.publishedAt,
-          viewCount: details?.viewCount,
-          duration: details?.duration,
-          url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-          source: 'youtube',
-        };
-      });
+      const data = (await response.json()) as PipedSearchResult;
+
+      if (!data.items || data.items.length === 0) {
+        // Try without filter
+        const fallbackResponse = await this.fetchWithFallback(
+          `/search?q=${encodeURIComponent(searchQuery)}&filter=videos`
+        );
+        const fallbackData = (await fallbackResponse.json()) as PipedSearchResult;
+        data.items = fallbackData.items || [];
+      }
+
+      const videos: MusicVideo[] = data.items
+        .filter((item) => item.type === 'stream')
+        .slice(0, limit)
+        .map((item) => {
+          // Extract video ID from URL (format: /watch?v=VIDEO_ID)
+          const videoId = item.url.replace('/watch?v=', '');
+          return {
+            id: videoId,
+            title: item.title,
+            thumbnail: item.thumbnail,
+            publishedAt: item.uploadedDate || '',
+            viewCount: item.views || 0,
+            duration: this.formatDuration(item.duration),
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            source: 'youtube',
+          };
+        });
 
       this.cache.set(cacheKey, { data: videos, timestamp: Date.now() });
       return videos;
@@ -126,18 +116,17 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
     }
   }
 
-  private parseDuration(isoDuration: string): string {
-    const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-    if (!match) return '';
+  private formatDuration(seconds: number): string {
+    if (!seconds || seconds <= 0) return '';
 
-    const hours = parseInt(match[1] || '0', 10);
-    const minutes = parseInt(match[2] || '0', 10);
-    const seconds = parseInt(match[3] || '0', 10);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
 
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   }
 }
 

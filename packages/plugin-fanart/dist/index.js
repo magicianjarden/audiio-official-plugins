@@ -1,74 +1,95 @@
 "use strict";
 /**
- * Fanart.tv Provider
- * Provides high-quality artist images from Fanart.tv API.
+ * Fanart Provider
+ * Provides high-quality artist images from TheAudioDB (free, no auth required).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FanartProvider = void 0;
 const sdk_1 = require("@audiio/sdk");
-const FANART_API_URL = 'https://webservice.fanart.tv/v3/music';
+// TheAudioDB API - free tier, no auth required
+const AUDIODB_API_URL = 'https://theaudiodb.com/api/v1/json/2';
 class FanartProvider extends sdk_1.BaseArtistEnrichmentProvider {
     id = 'fanart';
-    name = 'Fanart.tv';
+    name = 'Artist Gallery';
     enrichmentType = 'gallery';
-    apiKey = '';
     cache = new Map();
     cacheTTL = 3600000; // 1 hour
     async initialize() {
-        console.log('[Fanart.tv] Initializing...');
+        console.log('[Fanart] Initializing with TheAudioDB...');
     }
-    updateSettings(settings) {
-        if (settings.apiKey) {
-            this.apiKey = settings.apiKey;
-        }
-    }
-    async getArtistGallery(mbid) {
-        if (!this.apiKey) {
+    async getArtistGallery(mbid, artistName) {
+        // Try by MBID first, then by artist name
+        const cacheKey = mbid || artistName || '';
+        if (!cacheKey)
             return this.emptyResult();
-        }
-        const cached = this.cache.get(mbid);
+        const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
             return cached.data;
         }
         try {
-            const response = await fetch(`${FANART_API_URL}/${mbid}?api_key=${this.apiKey}`);
-            if (!response.ok) {
-                if (response.status === 404)
-                    return this.emptyResult();
-                throw new Error(`HTTP ${response.status}`);
+            let data = null;
+            // Try MBID lookup first
+            if (mbid) {
+                const mbidResponse = await fetch(`${AUDIODB_API_URL}/artist-mb.php?i=${mbid}`);
+                if (mbidResponse.ok) {
+                    data = await mbidResponse.json();
+                }
             }
-            const data = (await response.json());
-            const result = this.transformResponse(data);
-            this.cache.set(mbid, { data: result, timestamp: Date.now() });
+            // Fall back to name search if MBID didn't work
+            if (!data?.artists && artistName) {
+                const nameResponse = await fetch(`${AUDIODB_API_URL}/search.php?s=${encodeURIComponent(artistName)}`);
+                if (nameResponse.ok) {
+                    data = await nameResponse.json();
+                }
+            }
+            if (!data?.artists || data.artists.length === 0) {
+                return this.emptyResult();
+            }
+            const artist = data.artists[0];
+            const result = this.transformResponse(artist);
+            this.cache.set(cacheKey, { data: result, timestamp: Date.now() });
             return result;
         }
         catch (error) {
-            console.error('[Fanart.tv] Failed to fetch:', error);
+            console.error('[Fanart] Failed to fetch:', error);
             return this.emptyResult();
         }
     }
-    transformResponse(data) {
+    transformResponse(artist) {
+        const backgrounds = [];
+        const thumbs = [];
+        const logos = [];
+        const banners = [];
+        // Collect fanart backgrounds
+        if (artist.strArtistFanart)
+            backgrounds.push({ url: artist.strArtistFanart, likes: 0 });
+        if (artist.strArtistFanart2)
+            backgrounds.push({ url: artist.strArtistFanart2, likes: 0 });
+        if (artist.strArtistFanart3)
+            backgrounds.push({ url: artist.strArtistFanart3, likes: 0 });
+        if (artist.strArtistFanart4)
+            backgrounds.push({ url: artist.strArtistFanart4, likes: 0 });
+        // Collect thumbnails
+        if (artist.strArtistThumb)
+            thumbs.push({ url: artist.strArtistThumb, likes: 0 });
+        if (artist.strArtistWideThumb)
+            thumbs.push({ url: artist.strArtistWideThumb, likes: 0 });
+        if (artist.strArtistCutout)
+            thumbs.push({ url: artist.strArtistCutout, likes: 0 });
+        if (artist.strArtistClearart)
+            thumbs.push({ url: artist.strArtistClearart, likes: 0 });
+        // Collect logos
+        if (artist.strArtistLogo)
+            logos.push({ url: artist.strArtistLogo, likes: 0 });
+        // Collect banners
+        if (artist.strArtistBanner)
+            banners.push({ url: artist.strArtistBanner, likes: 0 });
         return {
-            backgrounds: (data.artistbackground || []).map((img) => ({
-                url: img.url,
-                likes: parseInt(img.likes, 10) || 0,
-            })),
-            thumbs: (data.artistthumb || []).map((img) => ({
-                url: img.url,
-                likes: parseInt(img.likes, 10) || 0,
-            })),
-            logos: (data.musiclogo || []).map((img) => ({
-                url: img.url,
-                likes: parseInt(img.likes, 10) || 0,
-            })),
-            hdLogos: (data.hdmusiclogo || []).map((img) => ({
-                url: img.url,
-                likes: parseInt(img.likes, 10) || 0,
-            })),
-            banners: (data.musicbanner || []).map((img) => ({
-                url: img.url,
-                likes: parseInt(img.likes, 10) || 0,
-            })),
+            backgrounds,
+            thumbs,
+            logos,
+            hdLogos: [], // AudioDB doesn't have separate HD logos
+            banners,
         };
     }
     emptyResult() {

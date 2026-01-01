@@ -1,22 +1,19 @@
 /**
  * YouTube Videos Provider
- * Provides music videos from YouTube Data API v3.
+ * Provides music videos using Piped API (no auth required).
  */
 import { BaseArtistEnrichmentProvider, type MusicVideo } from '@audiio/sdk';
-interface YouTubeSettings {
-    apiKey: string;
-}
 export declare class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
     readonly id = "youtube-videos";
     readonly name = "YouTube Music Videos";
     readonly enrichmentType: "videos";
-    private apiKey;
     private cache;
     private cacheTTL;
+    private currentInstance;
     initialize(): Promise<void>;
-    updateSettings(settings: Partial<YouTubeSettings>): void;
+    private fetchWithFallback;
     getArtistVideos(artistName: string, limit?: number): Promise<MusicVideo[]>;
-    private parseDuration;
+    private formatDuration;
 }
 export default YouTubeVideosProvider;
 //# sourceMappingURL=index.d.ts.map

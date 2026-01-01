@@ -1,21 +1,16 @@
 /**
- * Fanart.tv Provider
- * Provides high-quality artist images from Fanart.tv API.
+ * Fanart Provider
+ * Provides high-quality artist images from TheAudioDB (free, no auth required).
  */
 import { BaseArtistEnrichmentProvider, type ArtistImages } from '@audiio/sdk';
-interface FanartSettings {
-    apiKey: string;
-}
 export declare class FanartProvider extends BaseArtistEnrichmentProvider {
     readonly id = "fanart";
-    readonly name = "Fanart.tv";
+    readonly name = "Artist Gallery";
     readonly enrichmentType: "gallery";
-    private apiKey;
     private cache;
     private cacheTTL;
     initialize(): Promise<void>;
-    updateSettings(settings: Partial<FanartSettings>): void;
-    getArtistGallery(mbid: string): Promise<ArtistImages>;
+    getArtistGallery(mbid: string, artistName?: string): Promise<ArtistImages>;
     private transformResponse;
     private emptyResult;
 }
