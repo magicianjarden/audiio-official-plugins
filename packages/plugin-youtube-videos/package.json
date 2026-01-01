@@ -1,7 +1,7 @@
 {
   "name": "@audiio/plugin-youtube-videos",
   "version": "1.0.0",
-  "description": "YouTube Data API integration for artist music videos",
+  "description": "YouTube music videos for artist enrichment",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -19,6 +19,9 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "youtubei.js": "^16.0.1"
   },
   "peerDependencies": {
     "@audiio/sdk": "^0.1.0"
