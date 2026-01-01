@@ -8,6 +8,7 @@ import {
   type MusicVideo,
   type VideoStreamInfo
 } from '@audiio/sdk';
+import * as vm from 'vm';
 
 // Type for the Innertube instance
 type InnertubeType = Awaited<ReturnType<typeof import('youtubei.js')['Innertube']['create']>>;
@@ -29,10 +30,28 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       const ytModule = await dynamicImport('youtubei.js');
       const { Innertube, UniversalCache } = ytModule;
 
+      // Create Innertube with custom JS evaluator for Electron compatibility
       this.yt = await Innertube.create({
         cache: new UniversalCache(true),
-        generate_session_locally: true
+        generate_session_locally: true,
+        // Custom evaluator using Node's vm module (works in Electron main process)
+        fetch: globalThis.fetch,
+        // Provide custom JavaScript interpreter for deciphering
       });
+
+      // Patch the player's evaluate function to use vm.runInNewContext
+      if (this.yt?.session?.player) {
+        const player = this.yt.session.player as unknown as {
+          evaluate?: (code: string) => unknown;
+        };
+        if (player) {
+          console.log('[YouTube Videos] Patching player evaluator with vm.runInNewContext');
+          (player as any).evaluate = (code: string) => {
+            return vm.runInNewContext(code);
+          };
+        }
+      }
+
       console.log('[YouTube Videos] Initialized successfully');
     } catch (error) {
       console.error('[YouTube Videos] Failed to initialize:', error);
@@ -326,20 +345,26 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
             // Try to decipher if no direct URL
             if (!url && format.decipher && this.yt?.session?.player) {
               console.log('[YouTube Videos] Deciphering URL...');
-              url = format.decipher(this.yt.session.player);
+              try {
+                url = format.decipher(this.yt.session.player);
+              } catch (decipherError) {
+                console.log('[YouTube Videos] Decipher failed:', decipherError);
+              }
             }
 
-            if (url) {
+            if (url && typeof url === 'string') {
               console.log(`[YouTube Videos] Got URL from chooseFormat: ${format.quality_label}`);
-              return {
-                url,
-                mimeType: format.mime_type?.split(';')[0] || 'video/mp4',
-                quality: format.quality_label || preferredQuality,
-                width: format.width,
-                height: format.height,
+              // Return a plain object (no proxies or non-serializable values)
+              const result: VideoStreamInfo = {
+                url: String(url),
+                mimeType: String(format.mime_type?.split(';')[0] || 'video/mp4'),
+                quality: String(format.quality_label || preferredQuality),
+                width: format.width ? Number(format.width) : undefined,
+                height: format.height ? Number(format.height) : undefined,
                 audioOnly: false,
                 expiresAt: Date.now() + 3600000,
               };
+              return result;
             }
           }
         }

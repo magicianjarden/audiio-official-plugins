@@ -3,9 +3,33 @@
  * YouTube Videos Provider
  * Provides music videos using youtubei.js (same as YouTube Music plugin).
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.YouTubeVideosProvider = void 0;
 const sdk_1 = require("@audiio/sdk");
+const vm = __importStar(require("vm"));
 class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
     id = 'youtube-videos';
     name = 'YouTube Music Videos';
@@ -20,10 +44,24 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             const dynamicImport = new Function('specifier', 'return import(specifier)');
             const ytModule = await dynamicImport('youtubei.js');
             const { Innertube, UniversalCache } = ytModule;
+            // Create Innertube with custom JS evaluator for Electron compatibility
             this.yt = await Innertube.create({
                 cache: new UniversalCache(true),
-                generate_session_locally: true
+                generate_session_locally: true,
+                // Custom evaluator using Node's vm module (works in Electron main process)
+                fetch: globalThis.fetch,
+                // Provide custom JavaScript interpreter for deciphering
             });
+            // Patch the player's evaluate function to use vm.runInNewContext
+            if (this.yt?.session?.player) {
+                const player = this.yt.session.player;
+                if (player) {
+                    console.log('[YouTube Videos] Patching player evaluator with vm.runInNewContext');
+                    player.evaluate = (code) => {
+                        return vm.runInNewContext(code);
+                    };
+                }
+            }
             console.log('[YouTube Videos] Initialized successfully');
         }
         catch (error) {
@@ -252,19 +290,26 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
                         // Try to decipher if no direct URL
                         if (!url && format.decipher && this.yt?.session?.player) {
                             console.log('[YouTube Videos] Deciphering URL...');
-                            url = format.decipher(this.yt.session.player);
+                            try {
+                                url = format.decipher(this.yt.session.player);
+                            }
+                            catch (decipherError) {
+                                console.log('[YouTube Videos] Decipher failed:', decipherError);
+                            }
                         }
-                        if (url) {
+                        if (url && typeof url === 'string') {
                             console.log(`[YouTube Videos] Got URL from chooseFormat: ${format.quality_label}`);
-                            return {
-                                url,
-                                mimeType: format.mime_type?.split(';')[0] || 'video/mp4',
-                                quality: format.quality_label || preferredQuality,
-                                width: format.width,
-                                height: format.height,
+                            // Return a plain object (no proxies or non-serializable values)
+                            const result = {
+                                url: String(url),
+                                mimeType: String(format.mime_type?.split(';')[0] || 'video/mp4'),
+                                quality: String(format.quality_label || preferredQuality),
+                                width: format.width ? Number(format.width) : undefined,
+                                height: format.height ? Number(format.height) : undefined,
                                 audioOnly: false,
                                 expiresAt: Date.now() + 3600000,
                             };
+                            return result;
                         }
                     }
                 }
