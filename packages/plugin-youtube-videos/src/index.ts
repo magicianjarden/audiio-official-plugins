@@ -5,7 +5,8 @@
 
 import {
   BaseArtistEnrichmentProvider,
-  type MusicVideo
+  type MusicVideo,
+  type VideoStreamInfo
 } from '@audiio/sdk';
 
 // Type for the Innertube instance
@@ -151,6 +152,141 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
     } catch (error) {
       console.error('[YouTube Videos] Album search failed:', error);
       return [];
+    }
+  }
+
+  async getVideoStream(videoId: string, preferredQuality = '720p'): Promise<VideoStreamInfo | null> {
+    if (!this.yt) {
+      console.warn('[YouTube Videos] Not initialized');
+      return null;
+    }
+
+    try {
+      console.log(`[YouTube Videos] Getting stream for video: ${videoId}, quality: ${preferredQuality}`);
+
+      // Get video info
+      const info = await this.yt.getInfo(videoId);
+
+      if (!info.streaming_data) {
+        console.error('[YouTube Videos] No streaming data available');
+        return null;
+      }
+
+      // Try to get adaptive formats first (higher quality, separate audio/video)
+      const adaptiveFormats = info.streaming_data.adaptive_formats || [];
+      const combinedFormats = info.streaming_data.formats || [];
+
+      // Parse preferred quality to height
+      const preferredHeight = parseInt(preferredQuality.replace('p', '')) || 720;
+
+      // Find best video format (prefer mp4/webm with audio)
+      let bestFormat: {
+        url?: string;
+        mimeType?: string;
+        qualityLabel?: string;
+        width?: number;
+        height?: number;
+        hasAudio?: boolean;
+        bitrate?: number;
+      } | null = null;
+
+      // First try combined formats (video + audio)
+      for (const format of combinedFormats) {
+        const f = format as {
+          url?: string;
+          mimeType?: string;
+          qualityLabel?: string;
+          width?: number;
+          height?: number;
+          bitrate?: number;
+        };
+
+        if (!f.url || !f.mimeType) continue;
+        if (!f.mimeType.startsWith('video/')) continue;
+
+        const height = f.height || 0;
+
+        // Prefer format closest to preferred quality without exceeding
+        if (!bestFormat ||
+            (height <= preferredHeight && height > (bestFormat.height || 0)) ||
+            (bestFormat.height && bestFormat.height > preferredHeight && height <= preferredHeight)) {
+          bestFormat = { ...f, hasAudio: true };
+        }
+      }
+
+      // If no combined format, try adaptive video + audio
+      let audioUrl: string | undefined;
+      let audioMimeType: string | undefined;
+
+      if (!bestFormat) {
+        // Find best video-only format
+        for (const format of adaptiveFormats) {
+          const f = format as {
+            url?: string;
+            mimeType?: string;
+            qualityLabel?: string;
+            width?: number;
+            height?: number;
+            bitrate?: number;
+          };
+
+          if (!f.url || !f.mimeType) continue;
+          if (!f.mimeType.startsWith('video/')) continue;
+
+          const height = f.height || 0;
+
+          if (!bestFormat ||
+              (height <= preferredHeight && height > (bestFormat.height || 0)) ||
+              (bestFormat.height && bestFormat.height > preferredHeight && height <= preferredHeight)) {
+            bestFormat = { ...f, hasAudio: false };
+          }
+        }
+
+        // Find best audio format
+        let bestAudio: { url?: string; mimeType?: string; bitrate?: number } | null = null;
+        for (const format of adaptiveFormats) {
+          const f = format as {
+            url?: string;
+            mimeType?: string;
+            bitrate?: number;
+          };
+
+          if (!f.url || !f.mimeType) continue;
+          if (!f.mimeType.startsWith('audio/')) continue;
+
+          if (!bestAudio || (f.bitrate || 0) > (bestAudio.bitrate || 0)) {
+            bestAudio = f;
+          }
+        }
+
+        if (bestAudio) {
+          audioUrl = bestAudio.url;
+          audioMimeType = bestAudio.mimeType;
+        }
+      }
+
+      if (!bestFormat || !bestFormat.url) {
+        console.error('[YouTube Videos] No suitable format found');
+        return null;
+      }
+
+      const streamInfo: VideoStreamInfo = {
+        url: bestFormat.url,
+        mimeType: bestFormat.mimeType || 'video/mp4',
+        quality: bestFormat.qualityLabel || `${bestFormat.height}p`,
+        width: bestFormat.width,
+        height: bestFormat.height,
+        audioOnly: false,
+        audioUrl,
+        audioMimeType,
+        expiresAt: Date.now() + 3600000, // URLs typically expire in ~6 hours, be conservative
+      };
+
+      console.log(`[YouTube Videos] Got stream: ${streamInfo.quality}, hasAudio: ${bestFormat.hasAudio}`);
+      return streamInfo;
+    } catch (error) {
+      console.error('[YouTube Videos] Failed to get video stream:', error);
+      return null;
     }
   }
 
