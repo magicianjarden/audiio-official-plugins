@@ -31,11 +31,13 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       const ytModule = await dynamicImport('youtubei.js');
       const { Innertube, UniversalCache } = ytModule;
 
-      // Create Innertube instance
+      // Create Innertube instance with ANDROID client for direct URLs
       this.yt = await Innertube.create({
         cache: new UniversalCache(true),
         generate_session_locally: true,
         fetch: globalThis.fetch,
+        // Use Android client which often provides direct URLs without cipher
+        client_type: 'ANDROID',
       });
 
       // Patch the Player's decipher method directly to use vm
