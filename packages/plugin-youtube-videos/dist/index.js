@@ -44,13 +44,11 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             const dynamicImport = new Function('specifier', 'return import(specifier)');
             const ytModule = await dynamicImport('youtubei.js');
             const { Innertube, UniversalCache } = ytModule;
-            // Create Innertube instance with ANDROID client for direct URLs
+            // Create Innertube instance
             this.yt = await Innertube.create({
                 cache: new UniversalCache(true),
                 generate_session_locally: true,
                 fetch: globalThis.fetch,
-                // Use Android client which often provides direct URLs without cipher
-                client_type: 'ANDROID',
             });
             // Patch the Player's decipher method directly to use vm
             if (this.yt?.session?.player) {
@@ -353,8 +351,16 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             catch (formatError) {
                 console.log('[YouTube Videos] chooseFormat failed:', formatError);
             }
-            console.error('[YouTube Videos] No suitable format found');
-            return null;
+            // Final fallback: return YouTube embed URL for iframe playback
+            console.log('[YouTube Videos] Falling back to embed URL');
+            return {
+                url: `https://www.youtube.com/embed/${videoId}?autoplay=1`,
+                mimeType: 'text/html',
+                quality: preferredQuality,
+                audioOnly: false,
+                expiresAt: Date.now() + 86400000, // 24 hours
+                isEmbed: true,
+            };
         }
         catch (error) {
             console.error('[YouTube Videos] Failed to get video stream:', error);

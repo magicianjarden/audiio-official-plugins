@@ -31,13 +31,11 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       const ytModule = await dynamicImport('youtubei.js');
       const { Innertube, UniversalCache } = ytModule;
 
-      // Create Innertube instance with ANDROID client for direct URLs
+      // Create Innertube instance
       this.yt = await Innertube.create({
         cache: new UniversalCache(true),
         generate_session_locally: true,
         fetch: globalThis.fetch,
-        // Use Android client which often provides direct URLs without cipher
-        client_type: 'ANDROID',
       });
 
       // Patch the Player's decipher method directly to use vm
@@ -374,6 +372,7 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
             width?: number;
             height?: number;
           };
+          download?: (options?: { quality: string; type: string }) => Promise<ReadableStream>;
         };
 
         if (infoAny.chooseFormat) {
@@ -411,8 +410,16 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
         console.log('[YouTube Videos] chooseFormat failed:', formatError);
       }
 
-      console.error('[YouTube Videos] No suitable format found');
-      return null;
+      // Final fallback: return YouTube embed URL for iframe playback
+      console.log('[YouTube Videos] Falling back to embed URL');
+      return {
+        url: `https://www.youtube.com/embed/${videoId}?autoplay=1`,
+        mimeType: 'text/html',
+        quality: preferredQuality,
+        audioOnly: false,
+        expiresAt: Date.now() + 86400000, // 24 hours
+        isEmbed: true,
+      } as VideoStreamInfo;
     } catch (error) {
       console.error('[YouTube Videos] Failed to get video stream:', error);
       return null;
