@@ -164,8 +164,8 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
     try {
       console.log(`[YouTube Videos] Getting stream for video: ${videoId}, quality: ${preferredQuality}`);
 
-      // Get video info with basic info for faster loading
-      const info = await this.yt.getBasicInfo(videoId);
+      // Use getInfo (not getBasicInfo) to get full streaming data with decipherable URLs
+      const info = await this.yt.getInfo(videoId);
 
       if (!info.streaming_data) {
         console.error('[YouTube Videos] No streaming data available');
@@ -175,25 +175,22 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       // Parse preferred quality to height
       const preferredHeight = parseInt(preferredQuality.replace('p', '')) || 720;
 
-      // Helper to get URL from format (handles both direct URLs and ciphered URLs)
-      const getFormatUrl = (format: any): string | null => {
-        if (format.url) return format.url;
-        if (format.decipher) {
-          try {
-            return format.decipher(this.yt!.session.player);
-          } catch {
-            return null;
-          }
-        }
-        return null;
-      };
-
       // Try combined formats first (video + audio in one stream)
       const combinedFormats = info.streaming_data.formats || [];
+      console.log(`[YouTube Videos] Combined formats: ${combinedFormats.length}`);
+
       let bestCombined: { url: string; mimeType: string; quality: string; width?: number; height?: number } | null = null;
 
       for (const format of combinedFormats) {
-        const url = getFormatUrl(format);
+        // Use decipher method to get the actual URL
+        let url: string | undefined;
+        try {
+          url = format.decipher(this.yt!.session.player);
+        } catch (e) {
+          console.log(`[YouTube Videos] Decipher failed for format: ${format.itag}`);
+          continue;
+        }
+
         if (!url) continue;
 
         const mimeType = format.mime_type?.split(';')[0] || '';
@@ -201,6 +198,8 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
 
         const height = format.height || 0;
         const quality = format.quality_label || `${height}p`;
+
+        console.log(`[YouTube Videos] Found combined format: ${quality}, ${mimeType}`);
 
         if (!bestCombined ||
             (height <= preferredHeight && height > (bestCombined.height || 0)) ||
@@ -225,38 +224,38 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
 
       // Try adaptive formats (separate video + audio streams)
       const adaptiveFormats = info.streaming_data.adaptive_formats || [];
+      console.log(`[YouTube Videos] Adaptive formats: ${adaptiveFormats.length}`);
+
       let bestVideo: { url: string; mimeType: string; quality: string; width?: number; height?: number } | null = null;
-      let bestAudio: { url: string; mimeType: string } | null = null;
+      let bestAudio: { url: string; mimeType: string; bitrate: number } | null = null;
 
       // Find best video format
       for (const format of adaptiveFormats) {
-        const url = getFormatUrl(format);
-        if (!url) continue;
-
-        const mimeType = format.mime_type?.split(';')[0] || '';
-        if (!mimeType.startsWith('video/')) continue;
-
-        const height = format.height || 0;
-        const quality = format.quality_label || `${height}p`;
-
-        if (!bestVideo ||
-            (height <= preferredHeight && height > (bestVideo.height || 0)) ||
-            ((bestVideo.height || 0) > preferredHeight && height <= preferredHeight)) {
-          bestVideo = { url, mimeType, quality, width: format.width, height };
+        let url: string | undefined;
+        try {
+          url = format.decipher(this.yt!.session.player);
+        } catch {
+          continue;
         }
-      }
 
-      // Find best audio format
-      for (const format of adaptiveFormats) {
-        const url = getFormatUrl(format);
         if (!url) continue;
 
         const mimeType = format.mime_type?.split(';')[0] || '';
-        if (!mimeType.startsWith('audio/')) continue;
 
-        const bitrate = format.bitrate || 0;
-        if (!bestAudio || bitrate > (format.bitrate || 0)) {
-          bestAudio = { url, mimeType };
+        if (mimeType.startsWith('video/')) {
+          const height = format.height || 0;
+          const quality = format.quality_label || `${height}p`;
+
+          if (!bestVideo ||
+              (height <= preferredHeight && height > (bestVideo.height || 0)) ||
+              ((bestVideo.height || 0) > preferredHeight && height <= preferredHeight)) {
+            bestVideo = { url, mimeType, quality, width: format.width, height };
+          }
+        } else if (mimeType.startsWith('audio/')) {
+          const bitrate = format.bitrate || 0;
+          if (!bestAudio || bitrate > bestAudio.bitrate) {
+            bestAudio = { url, mimeType, bitrate };
+          }
         }
       }
 
