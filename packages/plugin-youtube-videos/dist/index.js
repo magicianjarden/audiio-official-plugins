@@ -10,7 +10,8 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
     id = 'youtube-videos';
     name = 'YouTube Music Videos';
     enrichmentType = 'videos';
-    yt = null;
+    ytWeb = null; // For search (WEB client)
+    ytAndroid = null; // For streaming (ANDROID client - direct URLs)
     cache = new Map();
     cacheTTL = 1800000; // 30 minutes
     async initialize() {
@@ -20,27 +21,27 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             const dynamicImport = new Function('specifier', 'return import(specifier)');
             const ytModule = await dynamicImport('youtubei.js');
             const { Innertube, UniversalCache, ClientType } = ytModule;
-            // Use ANDROID client like YTMusic - provides direct URLs without cipher
-            try {
-                console.log('[YouTube Videos] Trying Android client...');
-                this.yt = await Innertube.create({
-                    client_type: ClientType.ANDROID,
-                    cache: new UniversalCache(true),
-                });
-                console.log('[YouTube Videos] Android client initialized');
-            }
-            catch (e) {
-                console.log('[YouTube Videos] Android client failed, using web client');
-                this.yt = await Innertube.create({
-                    cache: new UniversalCache(true),
-                    generate_session_locally: true,
-                });
-            }
+            // WEB client for search (parses correctly)
+            console.log('[YouTube Videos] Creating WEB client for search...');
+            this.ytWeb = await Innertube.create({
+                cache: new UniversalCache(true),
+                generate_session_locally: true,
+            });
+            // ANDROID client for streaming (provides direct URLs)
+            console.log('[YouTube Videos] Creating ANDROID client for streaming...');
+            this.ytAndroid = await Innertube.create({
+                client_type: ClientType.ANDROID,
+                cache: new UniversalCache(true),
+            });
             console.log('[YouTube Videos] Initialized successfully');
         }
         catch (error) {
             console.error('[YouTube Videos] Failed to initialize:', error);
         }
+    }
+    // Helper to get the search client
+    get yt() {
+        return this.ytWeb;
     }
     async getArtistVideos(artistName, limit = 10) {
         if (!this.yt) {
@@ -143,7 +144,7 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
         }
     }
     async getVideoStream(videoId, preferredQuality = '720p') {
-        if (!this.yt) {
+        if (!this.ytAndroid) {
             console.warn('[YouTube Videos] Not initialized');
             return null;
         }
@@ -153,7 +154,7 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             // Approach 1: Try YouTube Music endpoint (works well for music videos)
             try {
                 console.log('[YouTube Videos] Trying music.getInfo()...');
-                const musicInfo = await this.yt.music.getInfo(videoId);
+                const musicInfo = await this.ytAndroid.music.getInfo(videoId);
                 if (musicInfo) {
                     const streamingData = musicInfo.streaming_data;
                     if (streamingData?.adaptive_formats) {
@@ -190,7 +191,7 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             // Approach 2: Try getBasicInfo like YTMusic does
             try {
                 console.log('[YouTube Videos] Trying getBasicInfo()...');
-                const basicInfo = await this.yt.getBasicInfo(videoId);
+                const basicInfo = await this.ytAndroid.getBasicInfo(videoId);
                 const streamingData = basicInfo.streaming_data;
                 if (streamingData) {
                     console.log('[YouTube Videos] Streaming data:', 'formats:', streamingData.formats?.length || 0, 'adaptive:', streamingData.adaptive_formats?.length || 0);

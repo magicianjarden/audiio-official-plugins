@@ -17,7 +17,8 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
   readonly name = 'YouTube Music Videos';
   readonly enrichmentType = 'videos' as const;
 
-  private yt: InnertubeType | null = null;
+  private ytWeb: InnertubeType | null = null; // For search (WEB client)
+  private ytAndroid: InnertubeType | null = null; // For streaming (ANDROID client - direct URLs)
   private cache = new Map<string, { data: MusicVideo[]; timestamp: number }>();
   private cacheTTL = 1800000; // 30 minutes
 
@@ -30,26 +31,29 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       const ytModule = await dynamicImport('youtubei.js');
       const { Innertube, UniversalCache, ClientType } = ytModule;
 
-      // Use ANDROID client like YTMusic - provides direct URLs without cipher
-      try {
-        console.log('[YouTube Videos] Trying Android client...');
-        this.yt = await Innertube.create({
-          client_type: ClientType.ANDROID,
-          cache: new UniversalCache(true),
-        });
-        console.log('[YouTube Videos] Android client initialized');
-      } catch (e) {
-        console.log('[YouTube Videos] Android client failed, using web client');
-        this.yt = await Innertube.create({
-          cache: new UniversalCache(true),
-          generate_session_locally: true,
-        });
-      }
+      // WEB client for search (parses correctly)
+      console.log('[YouTube Videos] Creating WEB client for search...');
+      this.ytWeb = await Innertube.create({
+        cache: new UniversalCache(true),
+        generate_session_locally: true,
+      });
+
+      // ANDROID client for streaming (provides direct URLs)
+      console.log('[YouTube Videos] Creating ANDROID client for streaming...');
+      this.ytAndroid = await Innertube.create({
+        client_type: ClientType.ANDROID,
+        cache: new UniversalCache(true),
+      });
 
       console.log('[YouTube Videos] Initialized successfully');
     } catch (error) {
       console.error('[YouTube Videos] Failed to initialize:', error);
     }
+  }
+
+  // Helper to get the search client
+  private get yt(): InnertubeType | null {
+    return this.ytWeb;
   }
 
   async getArtistVideos(artistName: string, limit = 10): Promise<MusicVideo[]> {
@@ -169,7 +173,7 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
   }
 
   async getVideoStream(videoId: string, preferredQuality = '720p'): Promise<VideoStreamInfo | null> {
-    if (!this.yt) {
+    if (!this.ytAndroid) {
       console.warn('[YouTube Videos] Not initialized');
       return null;
     }
@@ -194,7 +198,7 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       // Approach 1: Try YouTube Music endpoint (works well for music videos)
       try {
         console.log('[YouTube Videos] Trying music.getInfo()...');
-        const musicInfo = await this.yt.music.getInfo(videoId);
+        const musicInfo = await this.ytAndroid.music.getInfo(videoId);
 
         if (musicInfo) {
           const streamingData = (musicInfo as any).streaming_data;
@@ -235,7 +239,7 @@ export class YouTubeVideosProvider extends BaseArtistEnrichmentProvider {
       // Approach 2: Try getBasicInfo like YTMusic does
       try {
         console.log('[YouTube Videos] Trying getBasicInfo()...');
-        const basicInfo = await this.yt.getBasicInfo(videoId);
+        const basicInfo = await this.ytAndroid!.getBasicInfo(videoId);
         const streamingData = basicInfo.streaming_data;
 
         if (streamingData) {
