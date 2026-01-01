@@ -145,30 +145,14 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
             }
             // Parse preferred quality to height
             const preferredHeight = parseInt(preferredQuality.replace('p', '')) || 720;
-            // Helper to get URL - prefer direct URL, avoid decipher (needs JS evaluator in Electron)
-            const getUrl = (format) => {
-                // Check for direct URL first (most common case)
-                if (typeof format.url === 'string' && format.url.startsWith('http')) {
-                    return format.url;
-                }
-                // Some formats have url as a property that needs to be accessed
-                if (format.url && typeof format.url.toString === 'function') {
-                    const urlStr = format.url.toString();
-                    if (urlStr.startsWith('http'))
-                        return urlStr;
-                }
-                return null;
-            };
             // Try combined formats first (video + audio in one stream)
-            const combinedFormats = info.streaming_data.formats || [];
+            const combinedFormats = (info.streaming_data.formats || []);
             console.log(`[YouTube Videos] Combined formats: ${combinedFormats.length}`);
             let bestCombined = null;
             for (const format of combinedFormats) {
-                const url = getUrl(format);
-                if (!url) {
-                    console.log(`[YouTube Videos] No direct URL for format ${format.itag}`);
+                console.log(`[YouTube Videos] Format ${format.itag}: mime=${format.mime_type}, hasUrl=${!!format.url}, hasCipher=${!!format.signatureCipher}`);
+                if (!format.url)
                     continue;
-                }
                 const mimeType = format.mime_type?.split(';')[0] || '';
                 if (!mimeType.startsWith('video/'))
                     continue;
@@ -178,7 +162,7 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
                 if (!bestCombined ||
                     (height <= preferredHeight && height > (bestCombined.height || 0)) ||
                     ((bestCombined.height || 0) > preferredHeight && height <= preferredHeight)) {
-                    bestCombined = { url, mimeType, quality, width: format.width, height };
+                    bestCombined = { url: format.url, mimeType, quality, width: format.width, height };
                 }
             }
             // If we found a combined format, use it
@@ -195,28 +179,28 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
                 };
             }
             // Try adaptive formats (separate video + audio streams)
-            const adaptiveFormats = info.streaming_data.adaptive_formats || [];
+            const adaptiveFormats = (info.streaming_data.adaptive_formats || []);
             console.log(`[YouTube Videos] Adaptive formats: ${adaptiveFormats.length}`);
             let bestVideo = null;
             let bestAudio = null;
             for (const format of adaptiveFormats) {
-                const url = getUrl(format);
-                if (!url)
+                if (!format.url)
                     continue;
                 const mimeType = format.mime_type?.split(';')[0] || '';
                 if (mimeType.startsWith('video/')) {
                     const height = format.height || 0;
                     const quality = format.quality_label || `${height}p`;
+                    console.log(`[YouTube Videos] Adaptive video: ${quality}, ${mimeType}`);
                     if (!bestVideo ||
                         (height <= preferredHeight && height > (bestVideo.height || 0)) ||
                         ((bestVideo.height || 0) > preferredHeight && height <= preferredHeight)) {
-                        bestVideo = { url, mimeType, quality, width: format.width, height };
+                        bestVideo = { url: format.url, mimeType, quality, width: format.width, height };
                     }
                 }
                 else if (mimeType.startsWith('audio/')) {
                     const bitrate = format.bitrate || 0;
                     if (!bestAudio || bitrate > bestAudio.bitrate) {
-                        bestAudio = { url, mimeType, bitrate };
+                        bestAudio = { url: format.url, mimeType, bitrate };
                     }
                 }
             }
