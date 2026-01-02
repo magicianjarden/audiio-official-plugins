@@ -5,3 +5,4 @@ node_modules/
 
 # Ignore dist in root but not in packages (plugins need pre-built dist/)
 /dist/
+packages/plugin-algo-backup-20260101/

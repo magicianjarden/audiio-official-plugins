@@ -4,7 +4,8 @@
   "private": true,
   "description": "Official plugins for Audiio music platform",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "!packages/*-backup-*"
   ],
   "scripts": {
     "build": "turbo run build",

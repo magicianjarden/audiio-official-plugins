@@ -195,38 +195,30 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
                 const streamingData = basicInfo.streaming_data;
                 if (streamingData) {
                     console.log('[YouTube Videos] Streaming data:', 'formats:', streamingData.formats?.length || 0, 'adaptive:', streamingData.adaptive_formats?.length || 0);
-                    // Check combined formats first
-                    if (streamingData.formats) {
-                        for (const format of streamingData.formats) {
-                            const f = format;
-                            console.log('[YouTube Videos] Format:', f.mime_type, 'URL:', !!f.url, 'Cipher:', !!f.signatureCipher);
-                            if (f.url && !f.signatureCipher && f.mime_type?.includes('video')) {
-                                console.log(`[YouTube Videos] Found direct URL: ${f.quality_label}`);
-                                return {
-                                    url: String(f.url),
-                                    mimeType: String(f.mime_type?.split(';')[0] || 'video/mp4'),
-                                    quality: String(f.quality_label || preferredQuality),
-                                    width: f.width,
-                                    height: f.height,
-                                    audioOnly: false,
-                                    expiresAt: Date.now() + 3600000,
-                                };
-                            }
-                        }
-                    }
-                    // Check adaptive formats
+                    // Check adaptive formats FIRST (they have higher quality options)
                     if (streamingData.adaptive_formats) {
                         let bestVideo = null;
                         let bestAudio = null;
+                        // Debug: count formats by type
+                        let withUrl = 0, withCipher = 0, noUrl = 0;
+                        for (const format of streamingData.adaptive_formats) {
+                            const f = format;
+                            if (f.url)
+                                withUrl++;
+                            else if (f.signatureCipher)
+                                withCipher++;
+                            else
+                                noUrl++;
+                        }
+                        console.log(`[YouTube Videos] Adaptive formats: ${withUrl} with URL, ${withCipher} with cipher, ${noUrl} without`);
+                        // First pass: find all available formats
+                        const availableVideos = [];
                         for (const format of streamingData.adaptive_formats) {
                             const f = format;
                             if (!f.url || f.signatureCipher)
                                 continue;
                             if (f.mime_type?.includes('video')) {
-                                const height = f.height || 0;
-                                if (!bestVideo || (height <= preferredHeight && height > (bestVideo.height || 0))) {
-                                    bestVideo = f;
-                                }
+                                availableVideos.push(f);
                             }
                             else if (f.mime_type?.includes('audio')) {
                                 if (!bestAudio || (f.bitrate || 0) > (bestAudio.bitrate || 0)) {
@@ -234,8 +226,17 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
                                 }
                             }
                         }
+                        // Sort by height descending to find best quality
+                        availableVideos.sort((a, b) => (b.height || 0) - (a.height || 0));
+                        console.log('[YouTube Videos] Available video qualities:', availableVideos.map(v => v.quality_label || `${v.height}p`).join(', '));
+                        // Find best video at or below preferred quality
+                        bestVideo = availableVideos.find(f => (f.height || 0) <= preferredHeight) || null;
+                        // If no match found, use the lowest quality available
+                        if (!bestVideo && availableVideos.length > 0) {
+                            bestVideo = availableVideos[availableVideos.length - 1] || null;
+                        }
                         if (bestVideo?.url) {
-                            console.log(`[YouTube Videos] Found adaptive video: ${bestVideo.quality_label}`);
+                            console.log(`[YouTube Videos] Selected adaptive video: ${bestVideo.quality_label || bestVideo.height + 'p'}`);
                             return {
                                 url: String(bestVideo.url),
                                 mimeType: String(bestVideo.mime_type?.split(';')[0] || 'video/mp4'),
@@ -245,6 +246,26 @@ class YouTubeVideosProvider extends sdk_1.BaseArtistEnrichmentProvider {
                                 audioOnly: false,
                                 audioUrl: bestAudio?.url ? String(bestAudio.url) : undefined,
                                 audioMimeType: bestAudio?.mime_type?.split(';')[0],
+                                expiresAt: Date.now() + 3600000,
+                            };
+                        }
+                    }
+                    // Fallback: Check combined formats (lower quality, but has audio baked in)
+                    if (streamingData.formats) {
+                        // Sort by height to get best quality combined format
+                        const combinedFormats = streamingData.formats
+                            .filter(f => f.url && !f.signatureCipher && f.mime_type?.includes('video'))
+                            .sort((a, b) => (b.height || 0) - (a.height || 0));
+                        const bestCombined = combinedFormats.find(f => (f.height || 0) <= preferredHeight) || combinedFormats[0];
+                        if (bestCombined?.url) {
+                            console.log(`[YouTube Videos] Using combined format: ${bestCombined.quality_label}`);
+                            return {
+                                url: String(bestCombined.url),
+                                mimeType: String(bestCombined.mime_type?.split(';')[0] || 'video/mp4'),
+                                quality: String(bestCombined.quality_label || preferredQuality),
+                                width: bestCombined.width,
+                                height: bestCombined.height,
+                                audioOnly: false,
                                 expiresAt: Date.now() + 3600000,
                             };
                         }
