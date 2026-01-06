@@ -21,10 +21,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@audiio/sdk": "*",
     "youtubei.js": "^16.0.1"
-  },
-  "peerDependencies": {
-    "@audiio/sdk": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

@@ -11,6 +11,41 @@ class LRCLibProvider extends sdk_1.BaseLyricsProvider {
     id = 'lrclib';
     name = 'LRCLib';
     supportsSynced = true;
+    get manifest() {
+        return {
+            id: 'lrclib',
+            name: 'LRCLib',
+            version: '1.0.0',
+            description: 'Synchronized lyrics from the LRCLib community database',
+            author: 'Audiio',
+            roles: ['lyrics-provider'],
+            privacy: {
+                collects: false,
+                sharesWithThirdParties: false,
+                tracksAcrossApps: false,
+                dataAccess: [
+                    {
+                        category: 'library-data',
+                        usage: ['service-functionality'],
+                        required: true,
+                        userFriendlyLabel: 'Track Information',
+                        userFriendlyDesc: 'Song title, artist, album, and duration for lyrics lookup',
+                        technicalDesc: 'track_name, artist_name, album_name, duration parameters'
+                    }
+                ],
+                networkAccess: [
+                    {
+                        host: 'lrclib.net',
+                        purpose: 'Fetch synchronized lyrics',
+                        dataTypes: ['library-data']
+                    }
+                ],
+                localStorageUsed: false,
+                dataRetention: 'session',
+                lastUpdated: '2025-01-06'
+            }
+        };
+    }
     async getLyrics(query, _options) {
         try {
             const params = new URLSearchParams({
@@ -34,6 +69,8 @@ class LRCLibProvider extends sdk_1.BaseLyricsProvider {
             return {
                 synced: data.syncedLyrics ? this.parseLrc(data.syncedLyrics) : undefined,
                 plain: data.plainLyrics,
+                // Include raw LRC for client-side parsing
+                _rawSynced: data.syncedLyrics,
                 source: 'lrclib'
             };
         }

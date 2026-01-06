@@ -6,11 +6,69 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.YouTubeMusicProvider = void 0;
 const sdk_1 = require("@audiio/sdk");
+// Set to true to enable verbose debug logging
+const DEBUG = false;
+function log(...args) {
+    console.log('[YTMusic]', ...args);
+}
+function debug(...args) {
+    if (DEBUG)
+        console.log('[YTMusic:debug]', ...args);
+}
 class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
     id = 'youtube-music';
     name = 'YouTube Music';
     requiresAuth = false;
     supportedQualities = ['high', 'medium', 'low'];
+    get manifest() {
+        return {
+            id: 'youtube-music',
+            name: 'YouTube Music',
+            version: '1.0.0',
+            description: 'Audio streaming from YouTube Music',
+            author: 'Audiio',
+            roles: ['stream-provider'],
+            privacy: {
+                collects: false,
+                sharesWithThirdParties: false,
+                tracksAcrossApps: false,
+                dataAccess: [
+                    {
+                        category: 'library-data',
+                        usage: ['service-functionality'],
+                        required: true,
+                        userFriendlyLabel: 'Search Queries',
+                        userFriendlyDesc: 'Track and artist names used to find streams',
+                        technicalDesc: 'Search queries for track matching (artist + title)'
+                    },
+                    {
+                        category: 'audio-content',
+                        usage: ['service-functionality'],
+                        required: true,
+                        userFriendlyLabel: 'Audio Streaming',
+                        userFriendlyDesc: 'Streams audio content from YouTube Music',
+                        technicalDesc: 'Audio stream URLs fetched via youtubei.js library'
+                    }
+                ],
+                networkAccess: [
+                    {
+                        host: 'music.youtube.com',
+                        purpose: 'Search and stream audio content',
+                        dataTypes: ['library-data', 'audio-content']
+                    },
+                    {
+                        host: 'www.youtube.com',
+                        purpose: 'Fetch stream URLs and metadata',
+                        dataTypes: ['audio-content']
+                    }
+                ],
+                localStorageUsed: true,
+                localStorageDesc: 'Caches session data for API requests',
+                dataRetention: 'session',
+                lastUpdated: '2025-01-06'
+            }
+        };
+    }
     yt = null;
     async initialize() {
         // Use Function constructor to ensure dynamic import isn't converted to require
@@ -20,19 +78,18 @@ class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
         const { Innertube, UniversalCache, ClientType } = ytModule;
         // Try to create with Android client first (often provides direct URLs)
         try {
-            console.log('[YTMusic] Trying Android client...');
             this.yt = await Innertube.create({
                 client_type: ClientType.ANDROID,
                 cache: new UniversalCache(true)
             });
-            console.log('[YTMusic] Android client initialized');
+            log('Initialized with Android client');
         }
-        catch (e) {
-            console.log('[YTMusic] Android client failed, falling back to web client');
+        catch {
             this.yt = await Innertube.create({
                 cache: new UniversalCache(true),
                 generate_session_locally: true
             });
+            log('Initialized with web client');
         }
     }
     async dispose() {
@@ -45,10 +102,10 @@ class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
         if (!this.yt)
             throw new Error('YouTube Music not initialized');
         const limit = options?.limit ?? 20;
-        console.log(`[YTMusic] Searching for: "${query}"`);
+        debug('Search query:', query);
         const results = await this.yt.music.search(query, { type: 'song' });
         if (!results.contents) {
-            console.log('[YTMusic] No contents in results');
+            debug('No contents in results');
             return [];
         }
         const tracks = [];
@@ -59,7 +116,7 @@ class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
             // Check if this is a MusicShelf with contents
             const shelfObj = shelf;
             if (shelfObj.type === 'MusicShelf' && shelfObj.contents) {
-                console.log(`[YTMusic] Found MusicShelf with ${shelfObj.contents.length} items`);
+                debug('Found MusicShelf with', shelfObj.contents.length, 'items');
                 for (const item of shelfObj.contents) {
                     if (tracks.length >= limit)
                         break;
@@ -77,7 +134,7 @@ class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
                 }
             }
         }
-        console.log(`[YTMusic] Mapped ${tracks.length} tracks`);
+        debug('Mapped', tracks.length, 'tracks');
         return tracks;
     }
     async searchByMetadata(metadata) {
@@ -85,9 +142,8 @@ class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
             throw new Error('YouTube Music not initialized');
         // Build search query
         const query = `${metadata.artist} ${metadata.title}`.trim();
-        console.log(`[YTMusic] searchByMetadata query: "${query}"`);
+        debug('searchByMetadata query:', query);
         const results = await this.search(query, { limit: 10 });
-        console.log(`[YTMusic] Search returned ${results.length} results`);
         if (results.length === 0)
             return null;
         // Score and find best match
@@ -103,188 +159,152 @@ class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
                 artist: metadata.artist,
                 duration: metadata.duration
             });
-            console.log(`[YTMusic] Candidate "${candidate.title}" by ${candidate.artists.join(', ')} - score: ${score.toFixed(2)}`);
+            debug('Candidate:', candidate.title, 'by', candidate.artists.join(', '), '- score:', score.toFixed(2));
             if (score > bestScore && score >= 0.6) {
                 bestScore = score;
                 bestMatch = candidate;
             }
         }
-        console.log(`[YTMusic] Best match: ${bestMatch ? bestMatch.title : 'none'} (score: ${bestScore.toFixed(2)})`);
+        if (bestMatch) {
+            log('Matched:', bestMatch.title, 'by', bestMatch.artists.join(', '), `(${bestScore.toFixed(2)})`);
+        }
         return bestMatch;
     }
     async getStream(trackId, quality) {
         if (!this.yt)
             throw new Error('YouTube Music not initialized');
-        console.log(`[YTMusic] Getting stream for video: ${trackId}`);
+        debug('Getting stream for:', trackId);
         // Choose format based on quality preference
         const selectedQuality = this.selectQuality(this.supportedQualities, quality);
-        // Try multiple approaches to get the stream URL
-        let url;
-        let mimeType = 'audio/mp4';
-        let bitrate = 128000;
-        // Approach 1: Try YouTube Music specific getInfo
-        try {
-            console.log('[YTMusic] Trying music.getInfo()...');
-            const musicInfo = await this.yt.music.getInfo(trackId);
-            if (musicInfo) {
-                console.log('[YTMusic] Got music info, checking streaming data...');
-                const streamingData = musicInfo.streaming_data;
-                if (streamingData?.adaptive_formats) {
-                    // Sort audio formats by bitrate (descending for high quality, ascending for low)
-                    const audioFormats = streamingData.adaptive_formats
-                        .filter(f => f.mime_type?.includes('audio'))
-                        .sort((a, b) => {
-                        const bitrateA = a.bitrate ?? 0;
-                        const bitrateB = b.bitrate ?? 0;
-                        return selectedQuality === 'low' ? bitrateA - bitrateB : bitrateB - bitrateA;
-                    });
-                    console.log(`[YTMusic] Found ${audioFormats.length} audio formats`);
-                    for (const format of audioFormats) {
-                        // Try direct URL first
-                        if (format.url && !format.signatureCipher) {
-                            console.log('[YTMusic] Found format with direct URL');
-                            url = format.url;
-                            mimeType = format.mime_type ?? 'audio/mp4';
-                            bitrate = format.bitrate ?? 128000;
-                            break;
-                        }
-                        // Try to decipher if needed
-                        if (format.decipher && this.yt.session?.player) {
-                            try {
-                                console.log('[YTMusic] Attempting to decipher format...');
-                                url = await format.decipher(this.yt.session.player);
-                                mimeType = format.mime_type ?? 'audio/mp4';
-                                bitrate = format.bitrate ?? 128000;
-                                console.log('[YTMusic] Decipher successful');
-                                break;
-                            }
-                            catch (e) {
-                                console.log('[YTMusic] Decipher failed for this format, trying next...');
-                            }
-                        }
-                    }
-                }
-            }
+        const preferHighBitrate = selectedQuality !== 'low';
+        // Try multiple approaches - getBasicInfo first as it's most reliable
+        const result = await this.tryGetBasicInfo(trackId, preferHighBitrate)
+            || await this.tryMusicGetInfo(trackId, preferHighBitrate)
+            || await this.tryGetInfo(trackId, selectedQuality);
+        if (!result) {
+            throw new Error('Could not extract stream URL');
         }
-        catch (musicInfoError) {
-            console.log('[YTMusic] music.getInfo() failed:', musicInfoError);
-        }
-        // Approach 2: Try regular getInfo with full player context
-        if (!url) {
-            try {
-                console.log('[YTMusic] Trying getInfo()...');
-                const videoInfo = await this.yt.getInfo(trackId);
-                const format = videoInfo.chooseFormat({
-                    type: 'audio',
-                    quality: selectedQuality === 'high' ? 'best' : selectedQuality === 'low' ? 'worst' : undefined
-                });
-                if (format) {
-                    mimeType = format.mime_type;
-                    bitrate = format.bitrate ?? 128000;
-                    const formatAny = format;
-                    if (formatAny.url && !formatAny.signatureCipher) {
-                        console.log('[YTMusic] Found direct URL from getInfo');
-                        url = formatAny.url;
-                    }
-                    else {
-                        try {
-                            console.log('[YTMusic] Deciphering from getInfo...');
-                            url = await format.decipher(this.yt.session.player);
-                            console.log('[YTMusic] Decipher from getInfo successful');
-                        }
-                        catch (e) {
-                            console.log('[YTMusic] Decipher from getInfo failed');
-                        }
-                    }
-                }
-            }
-            catch (infoError) {
-                console.log('[YTMusic] getInfo() failed:', infoError);
-            }
-        }
-        // Approach 3: Try getBasicInfo as last resort
-        if (!url) {
-            try {
-                console.log('[YTMusic] Trying getBasicInfo() as fallback...');
-                const basicInfo = await this.yt.getBasicInfo(trackId);
-                const streamingData = basicInfo.streaming_data;
-                console.log('[YTMusic] Streaming data formats count:', streamingData?.adaptive_formats?.length ?? 0, 'Has HLS:', !!streamingData?.hls_manifest_url, 'Has DASH:', !!streamingData?.dash_manifest_url);
-                // Try HLS manifest URL if available
-                if (!url && streamingData?.hls_manifest_url) {
-                    console.log('[YTMusic] Using HLS manifest URL');
-                    url = streamingData.hls_manifest_url;
-                    mimeType = 'application/x-mpegURL';
-                }
-                // Try DASH manifest URL if available
-                if (!url && streamingData?.dash_manifest_url) {
-                    console.log('[YTMusic] Using DASH manifest URL');
-                    url = streamingData.dash_manifest_url;
-                    mimeType = 'application/dash+xml';
-                }
-                // Try adaptive formats with direct URLs
-                if (!url && streamingData?.adaptive_formats) {
-                    for (const format of streamingData.adaptive_formats) {
-                        const f = format;
-                        console.log('[YTMusic] Format:', f.mime_type, 'Has URL:', !!f.url, 'Has cipher:', !!f.signatureCipher);
-                        if (f.url && f.mime_type?.includes('audio')) {
-                            console.log('[YTMusic] Found direct URL from basicInfo');
-                            url = f.url;
-                            mimeType = f.mime_type ?? 'audio/mp4';
-                            bitrate = f.bitrate ?? 128000;
-                            break;
-                        }
-                    }
-                }
-            }
-            catch (basicInfoError) {
-                console.log('[YTMusic] getBasicInfo() failed:', basicInfoError);
-            }
-        }
-        // Approach 4: Try using the download method to get a stream URL
-        if (!url) {
-            try {
-                console.log('[YTMusic] Trying download approach...');
-                const info = await this.yt.getBasicInfo(trackId);
-                // Use toDash() or toM3U8() which might give us usable URLs
-                const streamingData = info.streaming_data;
-                if (streamingData) {
-                    // Check if there's a way to get deciphered URLs
-                    const ytAny = this.yt;
-                    if (ytAny.download) {
-                        console.log('[YTMusic] Using download method...');
-                        const result = await ytAny.download(trackId, { type: 'audio' });
-                        if (result?.url) {
-                            url = result.url;
-                            console.log('[YTMusic] Got URL from download method');
-                        }
-                    }
-                }
-            }
-            catch (downloadError) {
-                console.log('[YTMusic] Download approach failed:', downloadError);
-            }
-        }
-        if (!url) {
-            throw new Error('Could not extract stream URL from any source');
-        }
-        console.log(`[YTMusic] Got stream URL: ${url.slice(0, 100)}...`);
+        debug('Got stream URL');
         return {
-            url,
-            format: this.mapMimeType(mimeType),
-            bitrate,
+            url: result.url,
+            format: this.mapMimeType(result.mimeType),
+            bitrate: result.bitrate,
             expiresAt: Date.now() + (6 * 60 * 60 * 1000) // ~6 hours
         };
     }
+    async tryGetBasicInfo(trackId, preferHighBitrate) {
+        try {
+            const basicInfo = await this.yt.getBasicInfo(trackId);
+            const streamingData = basicInfo.streaming_data;
+            if (!streamingData)
+                return null;
+            // Try adaptive formats with direct URLs (most common success path)
+            if (streamingData.adaptive_formats) {
+                // Sort by bitrate
+                const audioFormats = streamingData.adaptive_formats
+                    .filter(f => {
+                    const fmt = f;
+                    return fmt.mime_type?.includes('audio') && fmt.url;
+                })
+                    .sort((a, b) => {
+                    const aRate = a.bitrate ?? 0;
+                    const bRate = b.bitrate ?? 0;
+                    return preferHighBitrate ? bRate - aRate : aRate - bRate;
+                });
+                for (const format of audioFormats) {
+                    const f = format;
+                    if (f.url) {
+                        return {
+                            url: f.url,
+                            mimeType: f.mime_type ?? 'audio/mp4',
+                            bitrate: f.bitrate ?? 128000
+                        };
+                    }
+                }
+            }
+            // Fallback to HLS/DASH manifests
+            if (streamingData.hls_manifest_url) {
+                return { url: streamingData.hls_manifest_url, mimeType: 'application/x-mpegURL', bitrate: 128000 };
+            }
+            if (streamingData.dash_manifest_url) {
+                return { url: streamingData.dash_manifest_url, mimeType: 'application/dash+xml', bitrate: 128000 };
+            }
+        }
+        catch {
+            debug('getBasicInfo failed');
+        }
+        return null;
+    }
+    async tryMusicGetInfo(trackId, preferHighBitrate) {
+        try {
+            const musicInfo = await this.yt.music.getInfo(trackId);
+            const streamingData = musicInfo.streaming_data;
+            if (!streamingData?.adaptive_formats)
+                return null;
+            const audioFormats = streamingData.adaptive_formats
+                .filter(f => f.mime_type?.includes('audio'))
+                .sort((a, b) => {
+                const aRate = a.bitrate ?? 0;
+                const bRate = b.bitrate ?? 0;
+                return preferHighBitrate ? bRate - aRate : aRate - bRate;
+            });
+            for (const format of audioFormats) {
+                // Try direct URL
+                if (format.url && !format.signatureCipher) {
+                    return { url: format.url, mimeType: format.mime_type ?? 'audio/mp4', bitrate: format.bitrate ?? 128000 };
+                }
+                // Try decipher
+                if (format.decipher && this.yt.session?.player) {
+                    try {
+                        const url = await format.decipher(this.yt.session.player);
+                        return { url, mimeType: format.mime_type ?? 'audio/mp4', bitrate: format.bitrate ?? 128000 };
+                    }
+                    catch {
+                        continue;
+                    }
+                }
+            }
+        }
+        catch {
+            debug('music.getInfo failed');
+        }
+        return null;
+    }
+    async tryGetInfo(trackId, selectedQuality) {
+        try {
+            const videoInfo = await this.yt.getInfo(trackId);
+            const format = videoInfo.chooseFormat({
+                type: 'audio',
+                quality: selectedQuality === 'high' ? 'best' : selectedQuality === 'low' ? 'worst' : undefined
+            });
+            if (!format)
+                return null;
+            const formatAny = format;
+            // Try direct URL
+            if (formatAny.url && !formatAny.signatureCipher) {
+                return { url: formatAny.url, mimeType: format.mime_type, bitrate: format.bitrate ?? 128000 };
+            }
+            // Try decipher
+            try {
+                const url = await format.decipher(this.yt.session.player);
+                return { url, mimeType: format.mime_type, bitrate: format.bitrate ?? 128000 };
+            }
+            catch {
+                return null;
+            }
+        }
+        catch {
+            debug('getInfo failed');
+        }
+        return null;
+    }
     mapSearchResult(item) {
-        console.log('[YTMusic] Mapping item:', JSON.stringify(item, null, 2).slice(0, 1500));
         // Handle MusicResponsiveListItem structure from youtubei.js
         const musicItem = item;
         // Extract ID - try multiple locations
-        let id = musicItem.id || musicItem.video_id || musicItem.playlistItemData?.videoId;
-        if (!id) {
-            console.log('[YTMusic] No ID found in item');
+        const id = musicItem.id || musicItem.video_id || musicItem.playlistItemData?.videoId;
+        if (!id)
             return null;
-        }
         // Extract title
         let title = '';
         if (typeof musicItem.title === 'string') {
@@ -296,24 +316,20 @@ class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
         else if (musicItem.name) {
             title = musicItem.name;
         }
-        if (!title) {
-            console.log('[YTMusic] No title found');
+        if (!title)
             return null;
-        }
         // Extract artists - try multiple locations
         const artists = [];
         if (musicItem.artists && Array.isArray(musicItem.artists)) {
             for (const artist of musicItem.artists) {
-                if (artist.name) {
+                if (artist.name)
                     artists.push(artist.name);
-                }
             }
         }
         else if (musicItem.authors && Array.isArray(musicItem.authors)) {
             for (const author of musicItem.authors) {
-                if (author.name) {
+                if (author.name)
                     artists.push(author.name);
-                }
             }
         }
         else if (musicItem.author?.name) {
@@ -335,7 +351,7 @@ class YouTubeMusicProvider extends sdk_1.BaseStreamProvider {
         else if (musicItem.thumbnails && musicItem.thumbnails.length > 0) {
             thumbnail = musicItem.thumbnails[0]?.url;
         }
-        console.log(`[YTMusic] Mapped track: "${title}" by ${artists.join(', ')} (${id})`);
+        debug('Mapped:', title, 'by', artists.join(', '));
         return {
             id,
             title,

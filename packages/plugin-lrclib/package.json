@@ -20,8 +20,8 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist"
   },
-  "peerDependencies": {
-    "@audiio/sdk": "^0.1.0"
+  "dependencies": {
+    "@audiio/sdk": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

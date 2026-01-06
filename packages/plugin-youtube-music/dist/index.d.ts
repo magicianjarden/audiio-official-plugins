@@ -2,12 +2,13 @@
  * YouTube Music Stream Provider
  * Provides audio streams from YouTube Music using youtubei.js
  */
-import { BaseStreamProvider, type StreamTrack, type StreamSearchOptions, type StreamInfo, type Quality } from '@audiio/sdk';
+import { BaseStreamProvider, type StreamTrack, type StreamSearchOptions, type StreamInfo, type Quality, type AddonManifest } from '@audiio/sdk';
 export declare class YouTubeMusicProvider extends BaseStreamProvider {
     readonly id = "youtube-music";
     readonly name = "YouTube Music";
     readonly requiresAuth = false;
     readonly supportedQualities: Quality[];
+    get manifest(): AddonManifest;
     private yt;
     initialize(): Promise<void>;
     dispose(): Promise<void>;
@@ -21,9 +22,11 @@ export declare class YouTubeMusicProvider extends BaseStreamProvider {
         isrc?: string;
     }): Promise<StreamTrack | null>;
     getStream(trackId: string, quality?: Quality): Promise<StreamInfo>;
+    private tryGetBasicInfo;
+    private tryMusicGetInfo;
+    private tryGetInfo;
     private mapSearchResult;
     private parseDurationText;
     private mapMimeType;
 }
 export default YouTubeMusicProvider;
-//# sourceMappingURL=index.d.ts.map

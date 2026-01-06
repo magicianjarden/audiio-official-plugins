@@ -1,7 +1,7 @@
 {
-  "name": "@audiio/plugin-fanart",
+  "name": "@audiio/plugin-listenbrainz",
   "version": "1.0.0",
-  "description": "Fanart.tv integration for artist images and gallery",
+  "description": "ListenBrainz scrobbler for Audiio - track your listening history",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -12,8 +12,8 @@
   },
   "audiio": {
     "type": "plugin",
-    "id": "fanart",
-    "roles": ["artist-enrichment"]
+    "id": "listenbrainz",
+    "roles": ["scrobbler"]
   },
   "scripts": {
     "build": "tsc",
@@ -26,7 +26,7 @@
   "devDependencies": {
     "typescript": "^5.7.2"
   },
-  "keywords": ["audiio", "plugin", "fanart", "artist-enrichment", "gallery"],
+  "keywords": ["audiio", "plugin", "listenbrainz", "scrobbler", "lastfm"],
   "author": "Audiio",
   "license": "MIT"
 }

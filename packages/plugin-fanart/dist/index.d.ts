@@ -2,11 +2,12 @@
  * Fanart Provider
  * Provides high-quality artist images from TheAudioDB (free, no auth required).
  */
-import { BaseArtistEnrichmentProvider, type ArtistImages } from '@audiio/sdk';
+import { BaseArtistEnrichmentProvider, type ArtistImages, type AddonManifest } from '@audiio/sdk';
 export declare class FanartProvider extends BaseArtistEnrichmentProvider {
     readonly id = "fanart";
     readonly name = "Artist Gallery";
     readonly enrichmentType: "gallery";
+    get manifest(): AddonManifest;
     private cache;
     private cacheTTL;
     initialize(): Promise<void>;
@@ -15,4 +16,3 @@ export declare class FanartProvider extends BaseArtistEnrichmentProvider {
     private emptyResult;
 }
 export default FanartProvider;
-//# sourceMappingURL=index.d.ts.map

@@ -13,7 +13,8 @@ import {
   type Album,
   type ArtworkSet,
   type ArtistDetail,
-  type DeezerProviderSettings
+  type DeezerProviderSettings,
+  type AddonManifest
 } from '@audiio/sdk';
 import { protectedFetchJson, getCircuitStatus, resetCircuitBreaker } from './fetch-utils';
 
@@ -89,6 +90,45 @@ export class DeezerMetadataProvider extends BaseMetadataProvider {
   readonly id = 'deezer';
   readonly name = 'Deezer';
   readonly priority = 80;
+
+  get manifest(): AddonManifest {
+    return {
+    id: 'deezer',
+    name: 'Deezer',
+    version: '1.0.0',
+    description: 'Track, artist, and album metadata from Deezer',
+    author: 'Audiio',
+    roles: ['metadata-provider'],
+    privacy: {
+      collects: false,
+      sharesWithThirdParties: false,
+      tracksAcrossApps: false,
+
+      dataAccess: [
+        {
+          category: 'library-data',
+          usage: ['service-functionality'],
+          required: true,
+          userFriendlyLabel: 'Search Queries',
+          userFriendlyDesc: 'Track, artist, and album names you search for',
+          technicalDesc: 'Search queries sent to Deezer API for metadata lookup'
+        }
+      ],
+
+      networkAccess: [
+        {
+          host: 'api.deezer.com',
+          purpose: 'Fetch track, artist, and album metadata',
+          dataTypes: ['library-data']
+        }
+      ],
+
+      localStorageUsed: false,
+      dataRetention: 'session',
+      lastUpdated: '2025-01-06'
+    }
+    };
+  }
 
   private settings: DeezerProviderSettings = { ...DEFAULT_SETTINGS };
 

@@ -5,7 +5,8 @@
 
 import {
   BaseArtistEnrichmentProvider,
-  type ArtistImages
+  type ArtistImages,
+  type AddonManifest
 } from '@audiio/sdk';
 
 // TheAudioDB API - free tier, no auth required
@@ -32,6 +33,46 @@ export class FanartProvider extends BaseArtistEnrichmentProvider {
   readonly id = 'fanart';
   readonly name = 'Artist Gallery';
   readonly enrichmentType = 'gallery' as const;
+
+  get manifest(): AddonManifest {
+    return {
+    id: 'fanart',
+    name: 'Artist Gallery',
+    version: '1.0.0',
+    description: 'High-quality artist images from TheAudioDB',
+    author: 'Audiio',
+    roles: ['artist-enrichment'],
+    privacy: {
+      collects: false,
+      sharesWithThirdParties: false,
+      tracksAcrossApps: false,
+
+      dataAccess: [
+        {
+          category: 'library-data',
+          usage: ['service-functionality'],
+          required: true,
+          userFriendlyLabel: 'Artist Information',
+          userFriendlyDesc: 'Artist names and IDs used to find images',
+          technicalDesc: 'Artist name and MusicBrainz ID for image lookup'
+        }
+      ],
+
+      networkAccess: [
+        {
+          host: 'theaudiodb.com',
+          purpose: 'Fetch artist images and artwork',
+          dataTypes: ['library-data']
+        }
+      ],
+
+      localStorageUsed: true,
+      localStorageDesc: 'Caches artist images for 1 hour',
+      dataRetention: 'session',
+      lastUpdated: '2025-01-06'
+    }
+    };
+  }
 
   private cache = new Map<string, { data: ArtistImages; timestamp: number }>();
   private cacheTTL = 3600000; // 1 hour

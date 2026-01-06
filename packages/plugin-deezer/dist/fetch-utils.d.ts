@@ -72,4 +72,3 @@ export declare const getCircuitStatus: () => {
 export declare const resetCircuitBreaker: () => void;
 export declare const setProxyUrl: (url: string | null) => void;
 export {};
-//# sourceMappingURL=fetch-utils.d.ts.map

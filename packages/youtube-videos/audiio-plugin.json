@@ -1,0 +1,10 @@
+{
+  "id": "youtube-videos",
+  "name": "@audiio/plugin-youtube-videos",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "description": "YouTube music videos for artist enrichment",
+  "roles": [
+    "artist-enrichment"
+  ]
+}

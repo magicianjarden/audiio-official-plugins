@@ -16,4 +16,3 @@ export declare function registerDeezerPipelineHooks(pipeline: PluginPipelineAPI,
  * Unregister Deezer pipeline hooks
  */
 export declare function unregisterDeezerPipelineHooks(pipeline: PluginPipelineAPI): void;
-//# sourceMappingURL=register.d.ts.map

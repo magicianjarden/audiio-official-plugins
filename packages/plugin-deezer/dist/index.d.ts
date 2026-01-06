@@ -3,11 +3,12 @@
  * Provides track, artist, and album metadata from Deezer's public API
  * Supports configurable metadata fetching to allow complementary providers
  */
-import { BaseMetadataProvider, type MetadataSearchResult, type MetadataSearchOptions, type MetadataTrack, type Artist, type Album, type ArtistDetail, type DeezerProviderSettings } from '@audiio/sdk';
+import { BaseMetadataProvider, type MetadataSearchResult, type MetadataSearchOptions, type MetadataTrack, type Artist, type Album, type ArtistDetail, type DeezerProviderSettings, type AddonManifest } from '@audiio/sdk';
 export declare class DeezerMetadataProvider extends BaseMetadataProvider {
     readonly id = "deezer";
     readonly name = "Deezer";
     readonly priority = 80;
+    get manifest(): AddonManifest;
     private settings;
     /**
      * Update provider settings
@@ -52,4 +53,3 @@ export declare class DeezerMetadataProvider extends BaseMetadataProvider {
 }
 export { deezerChartsProvider, registerDeezerPipelineHooks, unregisterDeezerPipelineHooks, } from './pipeline';
 export default DeezerMetadataProvider;
-//# sourceMappingURL=index.d.ts.map

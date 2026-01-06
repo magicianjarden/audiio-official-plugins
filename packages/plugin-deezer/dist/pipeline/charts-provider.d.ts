@@ -8,4 +8,3 @@ import type { DataProvider } from '@audiio/sdk';
 import { DeezerMetadataProvider } from '../index';
 export declare const deezerChartsProvider: DataProvider;
 export declare function setDeezerProvider(provider: DeezerMetadataProvider): void;
-//# sourceMappingURL=charts-provider.d.ts.map

@@ -5,4 +5,3 @@
  */
 export { deezerChartsProvider, setDeezerProvider } from './charts-provider';
 export { registerDeezerPipelineHooks, unregisterDeezerPipelineHooks, } from './register';
-//# sourceMappingURL=index.d.ts.map

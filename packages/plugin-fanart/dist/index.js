@@ -12,6 +12,42 @@ class FanartProvider extends sdk_1.BaseArtistEnrichmentProvider {
     id = 'fanart';
     name = 'Artist Gallery';
     enrichmentType = 'gallery';
+    get manifest() {
+        return {
+            id: 'fanart',
+            name: 'Artist Gallery',
+            version: '1.0.0',
+            description: 'High-quality artist images from TheAudioDB',
+            author: 'Audiio',
+            roles: ['artist-enrichment'],
+            privacy: {
+                collects: false,
+                sharesWithThirdParties: false,
+                tracksAcrossApps: false,
+                dataAccess: [
+                    {
+                        category: 'library-data',
+                        usage: ['service-functionality'],
+                        required: true,
+                        userFriendlyLabel: 'Artist Information',
+                        userFriendlyDesc: 'Artist names and IDs used to find images',
+                        technicalDesc: 'Artist name and MusicBrainz ID for image lookup'
+                    }
+                ],
+                networkAccess: [
+                    {
+                        host: 'theaudiodb.com',
+                        purpose: 'Fetch artist images and artwork',
+                        dataTypes: ['library-data']
+                    }
+                ],
+                localStorageUsed: true,
+                localStorageDesc: 'Caches artist images for 1 hour',
+                dataRetention: 'session',
+                lastUpdated: '2025-01-06'
+            }
+        };
+    }
     cache = new Map();
     cacheTTL = 3600000; // 1 hour
     async initialize() {
